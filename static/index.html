@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Trend Bucket Agent</title>
+    <style>
+      body { font-family: Inter, system-ui, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+      .container { max-width: 980px; margin: 0 auto; padding: 2rem; }
+      .panel { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+      h1 { margin-top: 0; }
+      button { background: #38bdf8; color: #0f172a; border: none; border-radius: 8px; padding: .65rem 1rem; font-weight: 700; cursor: pointer; }
+      input { padding: .55rem .7rem; border-radius: 8px; border: 1px solid #64748b; background: #0f172a; color: #e2e8f0; width: 110px; }
+      .row { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; }
+      .project { border: 1px solid #475569; border-radius: 10px; padding: .75rem; margin-top: .6rem; background: #0b1222; }
+      .muted { color: #94a3b8; font-size: .92rem; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Trend Bucket Agent</h1>
+      <div class="panel row">
+        <button id="runNow">Run research now</button>
+        <label>Heartbeat (seconds): <input id="heartbeat" type="number" min="30" /></label>
+        <button id="saveHeartbeat">Save heartbeat</button>
+        <span id="status" class="muted"></span>
+      </div>
+
+      <div class="panel">
+        <h3>Agent status</h3>
+        <p class="muted" id="agentInfo">Loading...</p>
+      </div>
+
+      <div class="panel">
+        <h3>Bucket projects</h3>
+        <div id="projects"></div>
+      </div>
+    </div>
+
+    <script>
+      async function fetchState() {
+        const response = await fetch('/api/state');
+        const data = await response.json();
+        document.getElementById('heartbeat').value = data.heartbeat_seconds;
+        document.getElementById('agentInfo').textContent = `Last run: ${data.last_run || 'not yet'}`;
+
+        const container = document.getElementById('projects');
+        container.innerHTML = '';
+        if (!data.projects.length) {
+          container.innerHTML = '<p class="muted">No projects in bucket yet.</p>';
+          return;
+        }
+
+        data.projects.slice().reverse().forEach((project) => {
+          const card = document.createElement('div');
+          card.className = 'project';
+          card.innerHTML = `<strong>${project.title}</strong><p>${project.description}</p><p class="muted">${project.created_at}</p>`;
+          container.appendChild(card);
+        });
+      }
+
+      document.getElementById('runNow').addEventListener('click', async () => {
+        document.getElementById('status').textContent = 'Running…';
+        await fetch('/api/run', { method: 'POST' });
+        document.getElementById('status').textContent = 'Run complete';
+        await fetchState();
+      });
+
+      document.getElementById('saveHeartbeat').addEventListener('click', async () => {
+        const seconds = Number(document.getElementById('heartbeat').value);
+        await fetch('/api/heartbeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ heartbeat_seconds: seconds })
+        });
+        document.getElementById('status').textContent = 'Heartbeat saved';
+      });
+
+      fetchState();
+      setInterval(fetchState, 15000);
+    </script>
+  </body>
+</html>
