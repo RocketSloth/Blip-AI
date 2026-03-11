@@ -1,38 +1,38 @@
-# Trend Bucket Agent
+# Trend Bucket Agents
 
-A lightweight AI agent that:
+A lightweight AI workspace with two cooperating agents:
 
-- Researches **latest software/AI trends** using OpenAI.
-- Creates short, actionable project ideas.
-- Stores all generated ideas in a markdown **Bucket** file.
-- Runs automatically on a configurable heartbeat (default **2 minutes**).
-- Provides a clean web UI to review and manage runs.
+- A research agent that finds fresh software project ideas.
+- An organizer agent that reads `data/BUCKET.md` and groups ideas into sections.
+- A FastAPI app and web UI to run either workflow on demand.
 
 ## What this does
 
-The agent performs one cycle as follows:
+One research cycle now works like this:
 
-1. Reads `data/BUCKET.md` to load previously generated ideas.
-2. Sends an OpenAI request that asks for fresh trend-based ideas.
-3. Filters out duplicate titles against existing bucket content.
-4. Appends new ideas + run history to `data/BUCKET.md`.
+1. Read `data/BUCKET.md` to load previously generated ideas.
+2. Ask OpenAI for fresh trend-based ideas.
+3. Filter out duplicate titles against the existing bucket.
+4. Append new ideas to the raw `## Project Ideas` list.
+5. Run a second OpenAI pass that groups all ideas into `## Organized Projects`.
+6. Append run history to the markdown file.
 
-This means the markdown file is both the persistent store and a memory source to avoid duplicates.
+This keeps the raw list intact while also maintaining an LLM-organized view of the same bucket.
 
 ## Project layout
 
-```
+```text
 .
-├── app/
-│   ├── agent.py        # OpenAI-driven trend research + idea generation
-│   ├── bucket.py       # Markdown bucket parsing/writing
-│   ├── config.py       # Runtime settings model
-│   └── main.py         # FastAPI app + scheduler + API routes
-├── data/
-│   └── BUCKET.md       # Created automatically if missing
-├── static/
-│   └── index.html      # GUI
-└── requirements.txt
+|-- app/
+|   |-- agent.py        # Research agent + bucket organizer agent
+|   |-- bucket.py       # Markdown bucket parsing/writing
+|   |-- config.py       # Runtime settings model
+|   `-- main.py         # FastAPI app + scheduler + API routes
+|-- data/
+|   `-- BUCKET.md       # Persistent markdown bucket
+|-- static/
+|   `-- index.html      # UI for running and reviewing agents
+`-- requirements.txt
 ```
 
 ## Requirements
@@ -46,45 +46,32 @@ Set your key:
 export OPENAI_API_KEY="your_key_here"
 ```
 
-## Install & run
+## Install and run
 
 ```bash
 pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Open: `http://localhost:8000`
+Open `http://localhost:8000`
 
-## GUI features
+## UI features
 
-- **Run research now** button for immediate generation.
-- **Heartbeat editor** (seconds) so you can change cadence later.
-- Live list of project ideas currently in the bucket.
-- Last run timestamp display.
+- `Run research + organize` to generate new ideas and immediately regroup the bucket.
+- `Organize existing bucket` to re-cluster the current markdown file without generating new ideas.
+- Heartbeat editor for scheduled background runs.
+- Organized section view plus the raw append-only project list.
 
 ## API
 
-- `GET /api/state` → returns current heartbeat, run metadata, and bucket projects.
-- `POST /api/run` → executes one research cycle immediately.
-- `POST /api/heartbeat` → updates heartbeat interval.
-
-Example heartbeat update:
-
-```bash
-curl -X POST http://localhost:8000/api/heartbeat \
-  -H "Content-Type: application/json" \
-  -d '{"heartbeat_seconds": 180}'
-```
+- `GET /api/state` returns heartbeat, run metadata, raw projects, and organized sections.
+- `POST /api/run` runs research followed by organization.
+- `POST /api/organize` runs only the organizer agent.
+- `POST /api/heartbeat` updates the scheduler interval.
 
 ## Notes
 
-- Default heartbeat is **120 seconds (2 minutes)**.
-- Minimum heartbeat is 30 seconds.
-- Deduplication is title-based (case-insensitive).
-- Bucket file format is human-readable markdown for easy manual sorting later.
-
-## Future improvements
-
-- Semantic duplicate detection (embedding similarity).
-- Category tags (e.g., SaaS, infra, AI workflow, devtools).
-- Manual pin/archive controls in GUI.
+- Default heartbeat is `120` seconds.
+- Minimum heartbeat is `30` seconds.
+- Deduplication is title-based and case-insensitive.
+- `BUCKET.md` now stores both the raw idea stream and an LLM-organized section view.

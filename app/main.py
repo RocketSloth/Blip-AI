@@ -11,7 +11,6 @@ from typing import Any
 from dotenv import load_dotenv
 
 load_dotenv()
-# Strip whitespace so .env newlines/quotes don't break the key
 if os.environ.get("OPENAI_API_KEY"):
     os.environ["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"].strip().strip('"').strip("'")
 
@@ -20,7 +19,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from app.agent import TrendResearchAgent
+from app.agent import BucketOrganizerAgent, TrendResearchAgent
 from app.bucket import BucketStore
 from app.config import AgentSettings
 
@@ -33,7 +32,8 @@ class AgentRuntime:
     def __init__(self) -> None:
         self.settings = AgentSettings()
         self.bucket = BucketStore()
-        self.agent = TrendResearchAgent(settings=self.settings, bucket=self.bucket)
+        self.research_agent = TrendResearchAgent(settings=self.settings, bucket=self.bucket)
+        self.organizer_agent = BucketOrganizerAgent(settings=self.settings, bucket=self.bucket)
         self.last_run: str | None = None
         self.last_result: dict[str, Any] | None = None
         self._task: asyncio.Task | None = None
@@ -54,13 +54,30 @@ class AgentRuntime:
             try:
                 self.run_once()
             except Exception:
-                # Keep looping even if one run fails.
                 pass
             await asyncio.sleep(self.settings.heartbeat_seconds)
 
     def run_once(self) -> dict[str, Any]:
-        result = self.agent.run_once()
-        self.last_run = datetime.now(timezone.utc).isoformat()
+        research_result = self.research_agent.run_once()
+        organizer_result = self.organizer_agent.run_once()
+        completed_at = datetime.now(timezone.utc).isoformat()
+        result = {
+            "research": research_result,
+            "organizer": organizer_result,
+            "run_at": completed_at,
+        }
+        self.last_run = completed_at
+        self.last_result = result
+        return result
+
+    def organize_once(self) -> dict[str, Any]:
+        organizer_result = self.organizer_agent.run_once()
+        completed_at = datetime.now(timezone.utc).isoformat()
+        result = {
+            "organizer": organizer_result,
+            "run_at": completed_at,
+        }
+        self.last_run = completed_at
         self.last_result = result
         return result
 
@@ -87,11 +104,19 @@ def index() -> FileResponse:
 @app.get("/api/state")
 def state() -> dict[str, Any]:
     projects = [project.__dict__ for project in runtime.bucket.list_projects()]
+    organized_sections = [
+        {
+            "name": section.name,
+            "projects": [project.__dict__ for project in section.projects],
+        }
+        for section in runtime.bucket.list_organized_sections()
+    ]
     return {
         "heartbeat_seconds": runtime.settings.heartbeat_seconds,
         "last_run": runtime.last_run,
         "last_result": runtime.last_result,
         "projects": projects,
+        "organized_sections": organized_sections,
     }
 
 
@@ -104,6 +129,15 @@ def run_now() -> dict[str, Any]:
         return runtime.run_once()
     except Exception as exc:
         logger.exception("Run failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/organize")
+def organize_now() -> dict[str, Any]:
+    try:
+        return runtime.organize_once()
+    except Exception as exc:
+        logger.exception("Organization failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

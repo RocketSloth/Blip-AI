@@ -3,24 +3,134 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Trend Bucket Agent</title>
+    <title>Trend Bucket Agents</title>
     <style>
-      body { font-family: Inter, system-ui, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
-      .container { max-width: 980px; margin: 0 auto; padding: 2rem; }
-      .panel { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
-      h1 { margin-top: 0; }
-      button { background: #38bdf8; color: #0f172a; border: none; border-radius: 8px; padding: .65rem 1rem; font-weight: 700; cursor: pointer; }
-      input { padding: .55rem .7rem; border-radius: 8px; border: 1px solid #64748b; background: #0f172a; color: #e2e8f0; width: 110px; }
-      .row { display: flex; gap: .8rem; align-items: center; flex-wrap: wrap; }
-      .project { border: 1px solid #475569; border-radius: 10px; padding: .75rem; margin-top: .6rem; background: #0b1222; }
-      .muted { color: #94a3b8; font-size: .92rem; }
+      :root {
+        color-scheme: dark;
+      }
+
+      body {
+        font-family: "Segoe UI", sans-serif;
+        margin: 0;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+
+      .container {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 2rem;
+      }
+
+      .panel {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 14px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1rem;
+      }
+
+      .row {
+        display: flex;
+        gap: 0.8rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      h1,
+      h3,
+      h4 {
+        margin-top: 0;
+      }
+
+      button {
+        background: #38bdf8;
+        color: #0f172a;
+        border: none;
+        border-radius: 8px;
+        padding: 0.65rem 1rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: #cbd5e1;
+      }
+
+      input {
+        padding: 0.55rem 0.7rem;
+        border-radius: 8px;
+        border: 1px solid #64748b;
+        background: #0f172a;
+        color: #e2e8f0;
+        width: 110px;
+      }
+
+      .muted {
+        color: #94a3b8;
+        font-size: 0.92rem;
+      }
+
+      .project {
+        border: 1px solid #475569;
+        border-radius: 10px;
+        padding: 0.75rem;
+        margin-top: 0.6rem;
+        background: #0b1222;
+      }
+
+      .section {
+        border: 1px solid #334155;
+        border-radius: 12px;
+        background: #111827;
+        margin-top: 0.9rem;
+        overflow: hidden;
+      }
+
+      .section:first-child {
+        margin-top: 0;
+      }
+
+      .section summary {
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: baseline;
+        flex-wrap: wrap;
+        padding: 0.9rem 1rem;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .section summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .section summary::after {
+        content: '+';
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #94a3b8;
+        margin-left: auto;
+      }
+
+      .section[open] summary::after {
+        content: '-';
+      }
+
+      .section-body {
+        border-top: 1px solid #334155;
+        padding: 0 1rem 1rem;
+      }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>Trend Bucket Agent</h1>
+      <h1>Trend Bucket Agents</h1>
       <div class="panel row">
-        <button id="runNow">Run research now</button>
+        <button id="runNow">Run research + organize</button>
+        <button id="organizeNow" class="secondary">Organize existing bucket</button>
         <label>Heartbeat (seconds): <input id="heartbeat" type="number" min="30" /></label>
         <button id="saveHeartbeat">Save heartbeat</button>
         <span id="status" class="muted"></span>
@@ -32,38 +142,150 @@
       </div>
 
       <div class="panel">
-        <h3>Bucket projects</h3>
+        <h3>Organized sections</h3>
+        <div id="organizedSections"></div>
+      </div>
+
+      <div class="panel">
+        <h3>All project ideas</h3>
         <div id="projects"></div>
       </div>
     </div>
 
     <script>
-      async function fetchState() {
-        const response = await fetch('/api/state');
-        const data = await response.json();
-        document.getElementById('heartbeat').value = data.heartbeat_seconds;
-        document.getElementById('agentInfo').textContent = `Last run: ${data.last_run || 'not yet'}`;
+      const openSections = new Set(JSON.parse(localStorage.getItem('openSections') || '[]'));
 
-        const container = document.getElementById('projects');
+      function saveOpenSections() {
+        localStorage.setItem('openSections', JSON.stringify([...openSections]));
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function renderProjects(container, projects, reverse = false) {
         container.innerHTML = '';
-        if (!data.projects.length) {
+        const projectList = reverse ? projects.slice().reverse() : projects;
+
+        if (!projectList.length) {
           container.innerHTML = '<p class="muted">No projects in bucket yet.</p>';
           return;
         }
 
-        data.projects.slice().reverse().forEach((project) => {
+        projectList.forEach((project) => {
           const card = document.createElement('div');
           card.className = 'project';
-          card.innerHTML = `<strong>${project.title}</strong><p>${project.description}</p><p class="muted">${project.created_at}</p>`;
+          card.innerHTML = `
+            <strong>${escapeHtml(project.title)}</strong>
+            <p>${escapeHtml(project.description)}</p>
+            <p class="muted">${escapeHtml(project.created_at)}</p>
+          `;
           container.appendChild(card);
         });
       }
 
-      document.getElementById('runNow').addEventListener('click', async () => {
-        document.getElementById('status').textContent = 'Running…';
-        await fetch('/api/run', { method: 'POST' });
-        document.getElementById('status').textContent = 'Run complete';
+      function renderOrganizedSections(sections) {
+        const container = document.getElementById('organizedSections');
+        container.innerHTML = '';
+
+        if (!sections.length) {
+          container.innerHTML = '<p class="muted">No organized sections yet. Run the organizer to group your ideas.</p>';
+          return;
+        }
+
+        sections.forEach((section) => {
+          const wrapper = document.createElement('details');
+          wrapper.className = 'section';
+          wrapper.open = openSections.has(section.name);
+          wrapper.innerHTML = `
+            <summary>
+              <h4>${escapeHtml(section.name)}</h4>
+              <span class="muted">${section.projects.length} project(s)</span>
+            </summary>
+            <div class="section-body"></div>
+          `;
+
+          wrapper.addEventListener('toggle', () => {
+            if (wrapper.open) {
+              openSections.add(section.name);
+            } else {
+              openSections.delete(section.name);
+            }
+            saveOpenSections();
+          });
+
+          const body = wrapper.querySelector('.section-body');
+
+          section.projects.forEach((project) => {
+            const card = document.createElement('div');
+            card.className = 'project';
+            card.innerHTML = `
+              <strong>${escapeHtml(project.title)}</strong>
+              <p>${escapeHtml(project.description)}</p>
+              <p class="muted">${escapeHtml(project.created_at)}</p>
+            `;
+            body.appendChild(card);
+          });
+
+          container.appendChild(wrapper);
+        });
+      }
+
+      function formatStatus(data) {
+        const bits = [
+          `Last run: ${data.last_run || 'not yet'}`,
+          `Ideas: ${data.projects.length}`,
+          `Sections: ${data.organized_sections.length}`
+        ];
+
+        const lastResult = data.last_result || {};
+        if (lastResult.research) {
+          bits.push(`Added: ${(lastResult.research.added || []).length}`);
+        }
+        if (lastResult.organizer) {
+          bits.push(`Organized: ${lastResult.organizer.organized_count || 0}`);
+        }
+
+        return bits.join(' | ');
+      }
+
+      async function fetchState() {
+        const response = await fetch('/api/state');
+        const data = await response.json();
+
+        document.getElementById('heartbeat').value = data.heartbeat_seconds;
+        document.getElementById('agentInfo').textContent = formatStatus(data);
+
+        renderOrganizedSections(data.organized_sections || []);
+        renderProjects(document.getElementById('projects'), data.projects || [], true);
+      }
+
+      async function postAndRefresh(url, pendingText, doneText) {
+        const status = document.getElementById('status');
+        status.textContent = pendingText;
+
+        const response = await fetch(url, { method: 'POST' });
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+          status.textContent = error.detail || 'Request failed';
+          return;
+        }
+
+        status.textContent = doneText;
         await fetchState();
+      }
+
+      document.getElementById('runNow').addEventListener('click', async () => {
+        await postAndRefresh('/api/run', 'Running research and organizer...', 'Research and organization complete');
+      });
+
+      document.getElementById('organizeNow').addEventListener('click', async () => {
+        await postAndRefresh('/api/organize', 'Organizing bucket...', 'Bucket organized');
       });
 
       document.getElementById('saveHeartbeat').addEventListener('click', async () => {
