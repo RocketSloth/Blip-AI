@@ -55,13 +55,12 @@ class TrendResearchAgent:
         )
 
         client = OpenAI()
-        response = client.responses.create(
+        response = client.chat.completions.create(
             model=self.settings.model,
-            tools=[{"type": "web_search_preview"}],
-            input=prompt,
+            messages=[{"role": "user", "content": prompt}],
             temperature=0.7,
         )
-        text = response.output_text.strip()
+        text = (response.choices[0].message.content or "").strip()
         try:
             data = json.loads(text)
         except json.JSONDecodeError:

@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from dotenv import load_dotenv
+
+load_dotenv()
+# Strip whitespace so .env newlines/quotes don't break the key
+if os.environ.get("OPENAI_API_KEY"):
+    os.environ["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"].strip().strip('"').strip("'")
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -86,11 +95,15 @@ def state() -> dict[str, Any]:
     }
 
 
+logger = logging.getLogger(__name__)
+
+
 @app.post("/api/run")
 def run_now() -> dict[str, Any]:
     try:
         return runtime.run_once()
     except Exception as exc:
+        logger.exception("Run failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
