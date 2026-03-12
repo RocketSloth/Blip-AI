@@ -3,152 +3,354 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Trend Bucket Agents</title>
+    <title>Blip Autonomous MVP Factory</title>
     <style>
       :root {
         color-scheme: dark;
+        --bg: #08111f;
+        --panel: rgba(11, 19, 33, 0.92);
+        --panel-strong: #10213a;
+        --edge: rgba(121, 142, 180, 0.25);
+        --text: #eef4ff;
+        --muted: #9eb0ca;
+        --accent: #4ade80;
+        --accent-soft: rgba(74, 222, 128, 0.14);
+        --warn: #fbbf24;
+        --warn-soft: rgba(251, 191, 36, 0.16);
+        --danger: #fb7185;
+        --danger-soft: rgba(251, 113, 133, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
-        font-family: "Segoe UI", sans-serif;
         margin: 0;
-        background: #0f172a;
-        color: #e2e8f0;
+        font-family: "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top, rgba(74, 222, 128, 0.11), transparent 32%),
+          radial-gradient(circle at 85% 18%, rgba(125, 211, 252, 0.12), transparent 24%),
+          linear-gradient(180deg, #07111f 0%, #0b1424 48%, #09111d 100%);
       }
 
-      .container {
-        max-width: 1080px;
-        margin: 0 auto;
-        padding: 2rem;
-      }
-
-      .panel {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 14px;
-        padding: 1rem 1.25rem;
-        margin-bottom: 1rem;
-      }
-
-      .row {
-        display: flex;
-        gap: 0.8rem;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-
-      h1,
-      h3,
-      h4 {
-        margin-top: 0;
+      a {
+        color: #9bd7ff;
+        text-decoration: none;
       }
 
       button {
-        background: #38bdf8;
-        color: #0f172a;
         border: none;
-        border-radius: 8px;
-        padding: 0.65rem 1rem;
+        border-radius: 10px;
+        padding: 0.72rem 1rem;
+        font: inherit;
         font-weight: 700;
         cursor: pointer;
+        color: #08212f;
+        background: linear-gradient(135deg, #5eead4, #7dd3fc);
       }
 
       button.secondary {
-        background: #cbd5e1;
+        background: linear-gradient(135deg, #dbeafe, #cbd5e1);
+        color: #122236;
       }
 
-      input {
-        padding: 0.55rem 0.7rem;
-        border-radius: 8px;
-        border: 1px solid #64748b;
-        background: #0f172a;
-        color: #e2e8f0;
-        width: 110px;
+      button.ghost {
+        color: var(--text);
+        background: rgba(148, 163, 184, 0.12);
+        border: 1px solid rgba(148, 163, 184, 0.24);
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      input[type="number"] {
+        width: 120px;
+        padding: 0.65rem 0.72rem;
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.32);
+        background: #0a1322;
+        color: var(--text);
+      }
+
+      .page {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 2rem 1.25rem 3rem;
+      }
+
+      .hero {
+        margin-bottom: 1.25rem;
+        display: grid;
+        gap: 0.8rem;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: clamp(2rem, 5vw, 3.6rem);
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+        max-width: 920px;
+        line-height: 1.6;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 18px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 20px 50px rgba(1, 8, 18, 0.3);
+      }
+
+      .toolbar,
+      .inline-actions,
+      .chip-row,
+      .artifact-row,
+      .meta-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        align-items: center;
+      }
+
+      .meta-grid {
+        gap: 1rem;
+        align-items: start;
+      }
+
+      .grid {
+        display: grid;
+        gap: 1rem;
+      }
+
+      .two-col {
+        grid-template-columns: 1.35fr 1fr;
+      }
+
+      .three-col {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      @media (max-width: 980px) {
+        .two-col,
+        .three-col {
+          grid-template-columns: 1fr;
+        }
       }
 
       .muted {
-        color: #94a3b8;
-        font-size: 0.92rem;
+        color: var(--muted);
       }
 
-      .project {
-        border: 1px solid #475569;
-        border-radius: 10px;
-        padding: 0.75rem;
-        margin-top: 0.6rem;
-        background: #0b1222;
+      .status-line {
+        font-size: 0.96rem;
+        color: var(--muted);
+      }
+
+      .project-card,
+      .bucket-card,
+      .attempt,
+      .gate,
+      .info-box {
+        border-radius: 15px;
+        border: 1px solid rgba(114, 136, 174, 0.22);
+        background: rgba(10, 19, 35, 0.94);
+      }
+
+      .project-card,
+      .bucket-card {
+        padding: 1rem;
+        margin-top: 0.9rem;
+      }
+
+      .project-card:first-child,
+      .bucket-card:first-child {
+        margin-top: 0;
+      }
+
+      .card-head {
+        display: flex;
+        gap: 1rem;
+        align-items: start;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
+
+      .card-title {
+        display: grid;
+        gap: 0.35rem;
+        max-width: 760px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.28rem 0.58rem;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        border: 1px solid rgba(126, 153, 191, 0.25);
+        background: rgba(19, 33, 54, 0.9);
+      }
+
+      .chip.score {
+        color: #071521;
+        background: linear-gradient(135deg, #fbbf24, #fde68a);
+        border: none;
+      }
+
+      .chip.pass {
+        background: var(--accent-soft);
+        color: #b7f7ca;
+      }
+
+      .chip.fail {
+        background: var(--danger-soft);
+        color: #fecdd3;
+      }
+
+      .chip.warn {
+        background: var(--warn-soft);
+        color: #fde68a;
+      }
+
+      .chip.off {
+        background: rgba(148, 163, 184, 0.14);
+        color: #dbeafe;
+      }
+
+      .subgrid {
+        display: grid;
+        gap: 0.9rem;
+        margin-top: 1rem;
+      }
+
+      .info-box,
+      .gate,
+      .attempt {
+        padding: 0.85rem 0.9rem;
+      }
+
+      .label {
+        display: block;
+        color: var(--muted);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.22rem;
+      }
+
+      .gate-list,
+      .attempt-list,
+      .artifact-list {
+        display: grid;
+        gap: 0.65rem;
+        margin-top: 0.8rem;
+      }
+
+      .gate strong,
+      .attempt strong {
+        display: block;
+        margin-bottom: 0.25rem;
       }
 
       .section {
-        border: 1px solid #334155;
-        border-radius: 12px;
-        background: #111827;
-        margin-top: 0.9rem;
+        border: 1px solid rgba(99, 125, 164, 0.22);
+        border-radius: 14px;
+        background: rgba(11, 19, 35, 0.84);
+        margin-top: 0.8rem;
         overflow: hidden;
-      }
-
-      .section:first-child {
-        margin-top: 0;
       }
 
       .section summary {
         list-style: none;
+        cursor: pointer;
         display: flex;
         justify-content: space-between;
         gap: 1rem;
-        align-items: baseline;
-        flex-wrap: wrap;
+        align-items: center;
         padding: 0.9rem 1rem;
-        cursor: pointer;
-        user-select: none;
       }
 
       .section summary::-webkit-details-marker {
         display: none;
       }
 
-      .section summary::after {
-        content: '+';
-        font-size: 1.2rem;
-        font-weight: 700;
-        color: #94a3b8;
-        margin-left: auto;
-      }
-
-      .section[open] summary::after {
-        content: '-';
-      }
-
       .section-body {
-        border-top: 1px solid #334155;
+        border-top: 1px solid rgba(99, 125, 164, 0.18);
         padding: 0 1rem 1rem;
+      }
+
+      .checkbox {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .empty {
+        color: var(--muted);
+        padding: 0.4rem 0;
       }
     </style>
   </head>
   <body>
-    <div class="container">
-      <h1>Trend Bucket Agents</h1>
-      <div class="panel row">
-        <button id="runNow">Run research + organize</button>
-        <button id="organizeNow" class="secondary">Organize existing bucket</button>
-        <label>Heartbeat (seconds): <input id="heartbeat" type="number" min="30" /></label>
-        <button id="saveHeartbeat">Save heartbeat</button>
-        <span id="status" class="muted"></span>
+    <div class="page">
+      <div class="hero">
+        <h1>Blip Autonomous MVP Factory</h1>
+        <p>
+          Blip now focuses on three B2B lanes only: internal ops copilots, intake and approval
+          workflows, and reporting dashboards. Each promoted idea is qualified, turned into a frozen
+          product brief, scaffolded on one golden stack, validated with hard gates, and only then
+          reviewed by REF.
+        </p>
       </div>
 
-      <div class="panel">
-        <h3>Agent status</h3>
-        <p class="muted" id="agentInfo">Loading...</p>
+      <div class="panel toolbar">
+        <button id="runNow">Research new lane-fit ideas</button>
+        <button id="organizeNow" class="secondary">Organize bucket</button>
+        <label class="checkbox">Heartbeat seconds <input id="heartbeat" type="number" min="30" /></label>
+        <button id="saveHeartbeat" class="ghost">Save heartbeat</button>
+        <span id="status" class="status-line"></span>
       </div>
 
-      <div class="panel">
-        <h3>Organized sections</h3>
-        <div id="organizedSections"></div>
+      <div class="grid two-col">
+        <div class="panel">
+          <h2>Active MVP Factory</h2>
+          <p class="muted">
+            Heartbeat runs only projects with auto-run enabled. Stalled projects keep their validation
+            trail so you can see exactly what is blocking a usable MVP.
+          </p>
+          <div id="activeProjects"></div>
+        </div>
+
+        <div class="panel">
+          <h2>System Status</h2>
+          <p class="status-line" id="agentInfo">Loading...</p>
+          <div id="lastResult" class="artifact-list"></div>
+        </div>
       </div>
 
-      <div class="panel">
-        <h3>All project ideas</h3>
-        <div id="projects"></div>
+      <div class="grid two-col">
+        <div class="panel">
+          <h3>Organized Bucket</h3>
+          <div id="organizedSections"></div>
+        </div>
+
+        <div class="panel">
+          <h3>Bucket Ideas</h3>
+          <p class="muted">
+            Only ideas that qualify into one of the supported lanes can be promoted into active MVP work.
+          </p>
+          <div id="projects"></div>
+        </div>
       </div>
     </div>
 
@@ -168,25 +370,58 @@
           .replaceAll("'", '&#39;');
       }
 
-      function renderProjects(container, projects, reverse = false) {
-        container.innerHTML = '';
-        const projectList = reverse ? projects.slice().reverse() : projects;
+      async function fetchJson(url, options) {
+        const response = await fetch(url, options);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.detail || 'Request failed');
+        }
+        return data;
+      }
 
-        if (!projectList.length) {
-          container.innerHTML = '<p class="muted">No projects in bucket yet.</p>';
+      function formatStatus(data) {
+        const activeProjects = data.active_projects || [];
+        const usableCount = activeProjects.filter((project) => project.stage === 'usable_mvp' || project.stage === 'completed').length;
+        const stalledCount = activeProjects.filter((project) => project.stage === 'stalled').length;
+        const autoProjects = activeProjects.filter((project) => project.auto_run).length;
+
+        return [
+          `Last run: ${data.last_run || 'not yet'}`,
+          `Bucket ideas: ${(data.projects || []).length}`,
+          `Active projects: ${activeProjects.length}`,
+          `Usable MVPs: ${usableCount}`,
+          `Stalled: ${stalledCount}`,
+          `Auto-run enabled: ${autoProjects}`
+        ].join(' | ');
+      }
+
+      function renderLastResult(result) {
+        const container = document.getElementById('lastResult');
+        container.innerHTML = '';
+
+        if (!result) {
+          container.innerHTML = '<div class="info-box muted">No pipeline activity recorded yet.</div>';
           return;
         }
 
-        projectList.forEach((project) => {
-          const card = document.createElement('div');
-          card.className = 'project';
-          card.innerHTML = `
-            <strong>${escapeHtml(project.title)}</strong>
-            <p>${escapeHtml(project.description)}</p>
-            <p class="muted">${escapeHtml(project.created_at)}</p>
-          `;
-          container.appendChild(card);
-        });
+        const entries = [];
+        if (result.research) {
+          entries.push(`Research added ${(result.research.added || []).length} ideas.`);
+        }
+        if (result.organizer) {
+          entries.push(`Organizer touched ${(result.organizer.organized_count || 0)} bucket ideas.`);
+        }
+        if (result.project_heartbeat) {
+          entries.push(`Heartbeat processed ${result.project_heartbeat.projects_processed || 0} active projects.`);
+        }
+        if (result.decision) {
+          entries.push(`Last direct project decision: ${result.decision}.`);
+        }
+        if (!entries.length) {
+          entries.push('Latest response captured without a summary.');
+        }
+
+        container.innerHTML = entries.map((entry) => `<div class="info-box">${escapeHtml(entry)}</div>`).join('');
       }
 
       function renderOrganizedSections(sections) {
@@ -194,7 +429,7 @@
         container.innerHTML = '';
 
         if (!sections.length) {
-          container.innerHTML = '<p class="muted">No organized sections yet. Run the organizer to group your ideas.</p>';
+          container.innerHTML = '<p class="empty">No organized sections yet.</p>';
           return;
         }
 
@@ -204,8 +439,8 @@
           wrapper.open = openSections.has(section.name);
           wrapper.innerHTML = `
             <summary>
-              <h4>${escapeHtml(section.name)}</h4>
-              <span class="muted">${section.projects.length} project(s)</span>
+              <strong>${escapeHtml(section.name)}</strong>
+              <span class="muted">${section.projects.length} idea(s)</span>
             </summary>
             <div class="section-body"></div>
           `;
@@ -220,14 +455,17 @@
           });
 
           const body = wrapper.querySelector('.section-body');
-
           section.projects.forEach((project) => {
             const card = document.createElement('div');
-            card.className = 'project';
+            card.className = 'bucket-card';
             card.innerHTML = `
               <strong>${escapeHtml(project.title)}</strong>
-              <p>${escapeHtml(project.description)}</p>
-              <p class="muted">${escapeHtml(project.created_at)}</p>
+              <div class="muted">${escapeHtml(project.description)}</div>
+              <div class="chip-row" style="margin-top: 0.7rem;">
+                <span class="chip ${project.active_project_id ? 'pass' : 'off'}">
+                  ${project.active_project_id ? 'Promoted' : 'Bucket only'}
+                </span>
+              </div>
             `;
             body.appendChild(card);
           });
@@ -236,70 +474,310 @@
         });
       }
 
-      function formatStatus(data) {
-        const bits = [
-          `Last run: ${data.last_run || 'not yet'}`,
-          `Ideas: ${data.projects.length}`,
-          `Sections: ${data.organized_sections.length}`
-        ];
+      function gateHtml(gate, projectId) {
+        const chipClass = gate.passed ? 'pass' : 'fail';
+        const artifactLink = gate.artifact_path
+          ? `<a href="/api/projects/${encodeURIComponent(projectId)}/artifacts/${encodeURIComponent(gate.artifact_path)}">Open log</a>`
+          : '';
 
-        const lastResult = data.last_result || {};
-        if (lastResult.research) {
-          bits.push(`Added: ${(lastResult.research.added || []).length}`);
-        }
-        if (lastResult.organizer) {
-          bits.push(`Organized: ${lastResult.organizer.organized_count || 0}`);
-        }
-
-        return bits.join(' | ');
+        return `
+          <div class="gate">
+            <div class="chip-row">
+              <strong>${escapeHtml(gate.label)}</strong>
+              <span class="chip ${chipClass}">${gate.passed ? 'Pass' : 'Fail'}</span>
+            </div>
+            <div class="muted">${escapeHtml(gate.details || '')}</div>
+            ${artifactLink ? `<div style="margin-top: 0.4rem;">${artifactLink}</div>` : ''}
+          </div>
+        `;
       }
 
-      async function fetchState() {
-        const response = await fetch('/api/state');
-        const data = await response.json();
+      function attemptHtml(attempt) {
+        const scoreLine = attempt.candidate_score === null || attempt.candidate_score === undefined
+          ? `Baseline ${attempt.baseline_score}`
+          : `Baseline ${attempt.baseline_score} -> Candidate ${attempt.candidate_score}`;
+        const changedFiles = (attempt.changed_files || []).length
+          ? `Changed: ${attempt.changed_files.join(', ')}`
+          : 'No file changes recorded';
 
-        document.getElementById('heartbeat').value = data.heartbeat_seconds;
-        document.getElementById('agentInfo').textContent = formatStatus(data);
-
-        renderOrganizedSections(data.organized_sections || []);
-        renderProjects(document.getElementById('projects'), data.projects || [], true);
+        return `
+          <div class="attempt">
+            <strong>${escapeHtml(attempt.builder_name)} | ${escapeHtml(attempt.stage_name)} | ${escapeHtml(attempt.decision)}</strong>
+            <div>${escapeHtml(attempt.summary)}</div>
+            <div class="muted">${escapeHtml(scoreLine)}</div>
+            <div class="muted">${escapeHtml(changedFiles)}</div>
+            <div class="muted">${escapeHtml(attempt.reason || '')}</div>
+            ${attempt.next_task ? `<div class="muted">Next task: ${escapeHtml(attempt.next_task)}</div>` : ''}
+            <div class="muted">${escapeHtml(attempt.timestamp)}</div>
+          </div>
+        `;
       }
 
-      async function postAndRefresh(url, pendingText, doneText) {
-        const status = document.getElementById('status');
-        status.textContent = pendingText;
+      function projectArtifactsHtml(project) {
+        const artifacts = project.validation_artifacts || {};
+        const items = Object.entries(artifacts);
+        if (!items.length) {
+          return '<div class="empty">No validation artifacts yet.</div>';
+        }
+        return items.map(([label, path]) => `
+          <div class="info-box">
+            <span class="label">${escapeHtml(label.replaceAll('_', ' '))}</span>
+            <a href="/api/projects/${encodeURIComponent(project.id)}/artifacts/${encodeURIComponent(path)}">${escapeHtml(path)}</a>
+          </div>
+        `).join('');
+      }
 
-        const response = await fetch(url, { method: 'POST' });
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-          status.textContent = error.detail || 'Request failed';
+      function renderActiveProjects(projects) {
+        const container = document.getElementById('activeProjects');
+        container.innerHTML = '';
+
+        if (!projects.length) {
+          container.innerHTML = '<p class="empty">No active projects yet. Promote a qualified bucket idea to start the MVP factory.</p>';
           return;
         }
 
-        status.textContent = doneText;
-        await fetchState();
+        projects.forEach((project) => {
+          const brief = project.product_brief || {};
+          const validation = project.validation_summary || {};
+          const gates = project.hard_gate_results || [];
+          const attemptsHtml = (project.recent_attempts || []).length
+            ? `<div class="attempt-list">${project.recent_attempts.map(attemptHtml).join('')}</div>`
+            : '<div class="empty">No attempts recorded yet.</div>';
+          const gateHtmlList = gates.length
+            ? `<div class="gate-list">${gates.map((gate) => gateHtml(gate, project.id)).join('')}</div>`
+            : '<div class="empty">Validation has not run yet.</div>';
+
+          const card = document.createElement('div');
+          card.className = 'project-card';
+          card.innerHTML = `
+            <div class="card-head">
+              <div class="card-title">
+                <strong>${escapeHtml(project.title)}</strong>
+                <span class="muted">${escapeHtml(brief.opportunity_summary || project.source_description || '')}</span>
+                <div class="chip-row">
+                  <span class="chip score">Score ${escapeHtml(project.current_score)} / ${escapeHtml(project.target_score)}</span>
+                  <span class="chip">${escapeHtml(project.lane || 'unassigned')}</span>
+                  <span class="chip">${escapeHtml(project.stage || 'unknown')}</span>
+                  <span class="chip ${project.validation_status === 'passed' ? 'pass' : project.validation_status === 'failed' ? 'fail' : 'warn'}">
+                    validation ${escapeHtml(project.validation_status || 'unknown')}
+                  </span>
+                  <span class="chip ${project.auto_run ? 'pass' : 'off'}">${project.auto_run ? 'auto-run on' : 'auto-run off'}</span>
+                </div>
+              </div>
+              <div class="inline-actions">
+                <button data-project-run="${escapeHtml(project.id)}">Run pipeline</button>
+                <button class="secondary" data-project-build="${escapeHtml(project.id)}">Build scaffold</button>
+                <button class="ghost" data-project-validate="${escapeHtml(project.id)}">Validate</button>
+                <button class="ghost" data-project-download="${escapeHtml(project.id)}">Download repo</button>
+                <label class="checkbox">
+                  <input type="checkbox" data-project-auto="${escapeHtml(project.id)}" ${project.auto_run ? 'checked' : ''} />
+                  Auto-run
+                </label>
+              </div>
+            </div>
+
+            <div class="subgrid">
+              <div class="grid three-col">
+                <div class="info-box">
+                  <span class="label">Product brief</span>
+                  <div>${escapeHtml(brief.target_user || 'No target user recorded')}</div>
+                  <div class="muted">${escapeHtml(brief.must_have_flow || '')}</div>
+                </div>
+                <div class="info-box">
+                  <span class="label">Run contract</span>
+                  <div>${escapeHtml(project.run_command || '')}</div>
+                  <div class="muted">${escapeHtml(project.test_command || '')}</div>
+                </div>
+                <div class="info-box">
+                  <span class="label">Demo scenario</span>
+                  <div>${escapeHtml(brief.demo_scenario || 'Not planned yet')}</div>
+                </div>
+              </div>
+
+              <div class="grid two-col">
+                <div>
+                  <span class="label">Validation gates</span>
+                  ${gateHtmlList}
+                </div>
+                <div>
+                  <span class="label">Current status</span>
+                  <div class="artifact-list">
+                    <div class="info-box">
+                      <span class="label">Summary</span>
+                      <div>${escapeHtml(validation.summary || 'Validation not run yet')}</div>
+                    </div>
+                    <div class="info-box">
+                      <span class="label">Passed checks</span>
+                      <div>${escapeHtml((validation.passed_checks || []).join(', ') || 'None yet')}</div>
+                    </div>
+                    <div class="info-box">
+                      <span class="label">Failing checks</span>
+                      <div>${escapeHtml((validation.failing_checks || []).join(', ') || 'None')}</div>
+                    </div>
+                    <div class="info-box">
+                      <span class="label">Next best task</span>
+                      <div>${escapeHtml(project.stalled_reason || validation.next_task || 'Continue improving workflow quality.')}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span class="label">Validation artifacts</span>
+                <div class="artifact-list">${projectArtifactsHtml(project)}</div>
+              </div>
+
+              <div>
+                <span class="label">Recent attempts</span>
+                ${attemptsHtml}
+              </div>
+            </div>
+          `;
+
+          container.appendChild(card);
+        });
+
+        container.querySelectorAll('[data-project-run]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await postAndRefresh(`/api/projects/${button.dataset.projectRun}/run`, { method: 'POST' }, 'Running full pipeline...', 'Pipeline run complete');
+          });
+        });
+
+        container.querySelectorAll('[data-project-build]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await postAndRefresh(`/api/projects/${button.dataset.projectBuild}/build`, { method: 'POST' }, 'Scaffolding project...', 'Scaffold refreshed');
+          });
+        });
+
+        container.querySelectorAll('[data-project-validate]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await postAndRefresh(`/api/projects/${button.dataset.projectValidate}/validate`, { method: 'POST' }, 'Running validation...', 'Validation complete');
+          });
+        });
+
+        container.querySelectorAll('[data-project-download]').forEach((button) => {
+          button.addEventListener('click', () => {
+            window.location.href = `/api/projects/${encodeURIComponent(button.dataset.projectDownload)}/download`;
+          });
+        });
+
+        container.querySelectorAll('[data-project-auto]').forEach((checkbox) => {
+          checkbox.addEventListener('change', async () => {
+            try {
+              await postAndRefresh(
+                `/api/projects/${checkbox.dataset.projectAuto}/auto`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ auto_run: checkbox.checked })
+                },
+                'Updating auto-run...',
+                'Auto-run updated'
+              );
+            } catch (error) {
+              checkbox.checked = !checkbox.checked;
+            }
+          });
+        });
+      }
+
+      function renderIdeaProjects(projects) {
+        const container = document.getElementById('projects');
+        container.innerHTML = '';
+
+        if (!projects.length) {
+          container.innerHTML = '<p class="empty">No project ideas in the bucket yet.</p>';
+          return;
+        }
+
+        projects.slice().reverse().forEach((project) => {
+          const card = document.createElement('div');
+          card.className = 'bucket-card';
+          card.innerHTML = `
+            <div class="card-head">
+              <div class="card-title">
+                <strong>${escapeHtml(project.title)}</strong>
+                <span class="muted">${escapeHtml(project.description)}</span>
+                <span class="muted">${escapeHtml(project.created_at)}</span>
+              </div>
+              <div class="inline-actions">
+                <button data-promote="${escapeHtml(project.idea_id)}" ${project.active_project_id ? 'disabled' : ''}>
+                  ${project.active_project_id ? 'Already promoted' : 'Promote to active MVP'}
+                </button>
+              </div>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+
+        container.querySelectorAll('[data-promote]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await postAndRefresh(
+              '/api/projects/select',
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idea_id: button.dataset.promote })
+              },
+              'Qualifying and promoting idea...',
+              'Active MVP project created'
+            );
+          });
+        });
+      }
+
+      async function fetchState() {
+        const data = await fetchJson('/api/state');
+        document.getElementById('heartbeat').value = data.heartbeat_seconds;
+        document.getElementById('agentInfo').textContent = formatStatus(data);
+        renderLastResult(data.last_result);
+        renderActiveProjects(data.active_projects || []);
+        renderOrganizedSections(data.organized_sections || []);
+        renderIdeaProjects(data.projects || []);
+      }
+
+      async function postAndRefresh(url, options, pendingText, doneText) {
+        const status = document.getElementById('status');
+        status.textContent = pendingText;
+        try {
+          await fetchJson(url, options);
+          status.textContent = doneText;
+          await fetchState();
+        } catch (error) {
+          status.textContent = error.message || 'Request failed';
+          throw error;
+        }
       }
 
       document.getElementById('runNow').addEventListener('click', async () => {
-        await postAndRefresh('/api/run', 'Running research and organizer...', 'Research and organization complete');
+        await postAndRefresh('/api/run', { method: 'POST' }, 'Researching supported ideas...', 'Research complete');
       });
 
       document.getElementById('organizeNow').addEventListener('click', async () => {
-        await postAndRefresh('/api/organize', 'Organizing bucket...', 'Bucket organized');
+        await postAndRefresh('/api/organize', { method: 'POST' }, 'Organizing bucket...', 'Bucket organized');
       });
 
       document.getElementById('saveHeartbeat').addEventListener('click', async () => {
         const seconds = Number(document.getElementById('heartbeat').value);
-        await fetch('/api/heartbeat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ heartbeat_seconds: seconds })
-        });
-        document.getElementById('status').textContent = 'Heartbeat saved';
+        await postAndRefresh(
+          '/api/heartbeat',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ heartbeat_seconds: seconds })
+          },
+          'Saving heartbeat...',
+          'Heartbeat saved'
+        );
       });
 
-      fetchState();
-      setInterval(fetchState, 15000);
+      fetchState().catch((error) => {
+        document.getElementById('agentInfo').textContent = error.message || 'Failed to load state';
+      });
+
+      setInterval(() => {
+        fetchState().catch(() => {});
+      }, 15000);
     </script>
   </body>
 </html>

@@ -1,0 +1,37 @@
+{
+  "lane": "ops-copilot",
+  "title": "AI-powered productivity analytics dashboard",
+  "opportunity_summary": "Provide operations teams with a tool to visualize productivity patterns and suggest actionable improvements based on real-time user data.",
+  "target_user": "Operations analysts or managers reviewing KPI trends",
+  "job_to_be_done": "Spot trends, inspect a team, and create follow-up actions from the dashboard.",
+  "manual_workaround": "Managers review stale exports and maintain separate action trackers.",
+  "pain_severity": "High",
+  "roi": "Cut reporting prep time and turn insights into tracked next steps.",
+  "must_have_flow": "Review KPI cards, inspect a team, then create a follow-up action or export the current view.",
+  "icp": "Mid-sized to large enterprises with dedicated operations teams focused on performance metrics.",
+  "problem": "Current reporting methods are inefficient, leading to delays in decision-making and missed opportunities for improvement.",
+  "success_metric": "Reduction in time spent on reporting and an increase in actionable insights generated per week.",
+  "required_entities": [
+    "KPI data",
+    "User engagement metrics",
+    "Action tracking"
+  ],
+  "must_have_screens": [
+    "Dashboard overview",
+    "Team performance insights",
+    "Action creation interface"
+  ],
+  "must_have_actions": [
+    "View KPI trends",
+    "Inspect team performance",
+    "Create follow-up actions",
+    "Export data"
+  ],
+  "demo_scenario": "An operations manager logs into the dashboard, reviews the latest KPI trends, identifies a drop in team productivity, inspects the relevant metrics, and creates a follow-up action to address the issue.",
+  "acceptance_criteria": [
+    "Dashboard displays real-time KPI data",
+    "Users can filter and inspect team performance",
+    "Follow-up actions can be created directly from insights",
+    "Export functionality is available for reporting"
+  ]
+}

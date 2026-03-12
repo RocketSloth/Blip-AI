@@ -1,0 +1,10 @@
+{
+  "run_at": null,
+  "status": "unknown",
+  "summary": "",
+  "hard_gate_results": [],
+  "passed_checks": [],
+  "failing_checks": [],
+  "next_task": null,
+  "artifact_paths": {}
+}

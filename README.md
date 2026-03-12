@@ -1,77 +1,165 @@
-# Trend Bucket Agents
+# Blip Autonomous MVP Factory
 
-A lightweight AI workspace with two cooperating agents:
+Blip is no longer a free-form "idea improver." It now acts as an autonomous MVP factory for three narrow B2B lanes:
 
-- A research agent that finds fresh software project ideas.
-- An organizer agent that reads `data/BUCKET.md` and groups ideas into sections.
-- A FastAPI app and web UI to run either workflow on demand.
+- internal ops copilots
+- intake and approval workflows
+- reporting dashboards
 
-## What this does
+Every promoted project moves through the same pipeline:
 
-One research cycle now works like this:
+1. qualify the idea into a supported lane
+2. freeze a `PRODUCT_BRIEF.json`
+3. scaffold a canonical repo on one golden stack
+4. run deterministic validation gates
+5. let REF score qualitative quality only after the hard gates pass
 
-1. Read `data/BUCKET.md` to load previously generated ideas.
-2. Ask OpenAI for fresh trend-based ideas.
-3. Filter out duplicate titles against the existing bucket.
-4. Append new ideas to the raw `## Project Ideas` list.
-5. Run a second OpenAI pass that groups all ideas into `## Organized Projects`.
-6. Append run history to the markdown file.
+README-only edits no longer count as progress. A project only improves when it stays runnable, passes validation, and strengthens the main workflow.
 
-This keeps the raw list intact while also maintaining an LLM-organized view of the same bucket.
+## Golden Stack
 
-## Project layout
+Generated MVPs use one stack only:
+
+- FastAPI
+- Jinja
+- HTMX
+- SQLite
+- SQLModel
+- pytest
+
+Each scaffold includes:
+
+- `README.md`
+- `PROJECT_PLAN.md`
+- `PRODUCT_BRIEF.json`
+- `VALIDATION.json`
+- seeded demo data
+- a runnable app entrypoint
+- lane-specific UI and workflow tests
+
+## Supported Lanes
+
+### `ops-copilot`
+- queue view
+- task detail workflow
+- follow-up capture
+- action recommendations placeholder
+
+### `intake-approval`
+- submission review queue
+- decision workflow
+- reviewer notes
+- audit-friendly status tracking
+
+### `reporting-dashboard`
+- KPI dashboard
+- filters
+- CSV export
+- follow-up action creation
+
+## What Runs Automatically
+
+Manual actions:
+
+- `POST /api/run` researches new lane-fit ideas
+- `POST /api/organize` reorganizes the bucket
+
+Automatic actions:
+
+- the heartbeat only iterates active projects with `auto_run=true`
+- each cycle uses the staged build pipeline and deterministic validation
+- projects stop auto-running once they hit the target score of `95`
+
+## Validation Model
+
+Before REF can score a project, Blip checks:
+
+- scaffold contract present
+- app import works
+- homepage smoke test passes
+- seeded demo data loads
+- primary workflow test passes
+- README includes install, run, and test commands
+
+Validation output is persisted per project in:
+
+- `VALIDATION.json`
+- `records.json`
+- `artifacts/`
+
+## Project Layout
 
 ```text
 .
 |-- app/
-|   |-- agent.py        # Research agent + bucket organizer agent
-|   |-- bucket.py       # Markdown bucket parsing/writing
-|   |-- config.py       # Runtime settings model
-|   `-- main.py         # FastAPI app + scheduler + API routes
+|   |-- agent.py              # qualification, planning, scaffold, pipeline, REF
+|   |-- bucket.py             # idea bucket storage
+|   |-- config.py             # runtime settings
+|   |-- main.py               # FastAPI app and API routes
+|   |-- mvp_templates.py      # golden stack scaffolds for each lane
+|   |-- project_store.py      # active project manifest and workspace storage
+|   `-- project_validation.py # deterministic hard gates and artifact logs
 |-- data/
-|   `-- BUCKET.md       # Persistent markdown bucket
+|   |-- BUCKET.md
+|   |-- active_projects.json
+|   `-- projects/
 |-- static/
-|   `-- index.html      # UI for running and reviewing agents
+|   `-- index.html
+|-- tests/
+|   `-- test_project_workflow.py
 `-- requirements.txt
 ```
 
-## Requirements
+## Install And Run
 
-- Python 3.10+
-- OpenAI API key
-
-Set your key:
+Set your API key:
 
 ```bash
 export OPENAI_API_KEY="your_key_here"
 ```
 
-## Install and run
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
+```
+
+Start the app:
+
+```bash
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Open `http://localhost:8000`
+Open `http://localhost:8000`.
 
-## UI features
+## UI Features
 
-- `Run research + organize` to generate new ideas and immediately regroup the bucket.
-- `Organize existing bucket` to re-cluster the current markdown file without generating new ideas.
-- Heartbeat editor for scheduled background runs.
-- Organized section view plus the raw append-only project list.
+- promote qualified bucket ideas into active projects
+- inspect lane, stage, product brief summary, run/test contract, and demo scenario
+- run `build`, `validate`, or full pipeline actions on demand
+- review hard-gate pass/fail results and next best task
+- download the current generated repo at any time
+- open validation logs from the `artifacts/` folder
+- toggle heartbeat auto-run per project
 
 ## API
 
-- `GET /api/state` returns heartbeat, run metadata, raw projects, and organized sections.
-- `POST /api/run` runs research followed by organization.
-- `POST /api/organize` runs only the organizer agent.
-- `POST /api/heartbeat` updates the scheduler interval.
+- `GET /api/state`
+- `GET /api/projects/{id}`
+- `GET /api/projects/{id}/download`
+- `GET /api/projects/{id}/artifacts/{artifact_name}`
+- `POST /api/run`
+- `POST /api/organize`
+- `POST /api/projects/select`
+- `POST /api/projects/{id}/build`
+- `POST /api/projects/{id}/validate`
+- `POST /api/projects/{id}/run`
+- `POST /api/projects/{id}/auto`
+- `POST /api/heartbeat`
 
 ## Notes
 
-- Default heartbeat is `120` seconds.
-- Minimum heartbeat is `30` seconds.
-- Deduplication is title-based and case-insensitive.
-- `BUCKET.md` now stores both the raw idea stream and an LLM-organized section view.
+- unsupported ideas remain in the bucket and should not be promoted
+- active projects only write inside their own `data/projects/<slug>/` workspace
+- REF uses a frozen rubric per project, but only after deterministic validation passes
+- duplicate pipeline attempts are recorded and skipped so the same no-op work is not retried forever

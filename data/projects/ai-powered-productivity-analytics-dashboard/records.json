@@ -1,0 +1,614 @@
+{
+  "attempts": [
+    {
+      "attempt_key": "ai-productivity-dashboard-v1",
+      "builder_name": "Bootstrap Builder",
+      "summary": "Initial project setup for an AI-powered productivity analytics dashboard.",
+      "baseline_score": 0,
+      "candidate_score": 42,
+      "decision": "accepted",
+      "reason": "The project lacks significant implementation details and does not demonstrate a fully functional product.",
+      "timestamp": "2026-03-12T19:51:11.823454+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v2",
+      "builder_name": "Builder-2",
+      "summary": "Added a basic API endpoint for fetching productivity data from the server.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T19:51:15.648458+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v2",
+      "builder_name": "Builder-3",
+      "summary": "Add a basic navigation bar to improve user experience.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T19:51:15.648458+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v2",
+      "builder_name": "Builder-1",
+      "summary": "Enhanced user interface by adding a navigation bar for better user experience.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional implementation and detailed AI analytics features, which are critical for its success.",
+      "timestamp": "2026-03-12T19:51:15.648458+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v3",
+      "builder_name": "Builder-2",
+      "summary": "Implemented a data fetching function to retrieve productivity data from the back-end API in the front-end application.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T19:53:15.079561+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v3",
+      "builder_name": "Builder-3",
+      "summary": "Added a detailed section for AI analytics features in the README.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T19:53:15.079561+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v3",
+      "builder_name": "Builder-1",
+      "summary": "Implemented a basic data visualization component to display productivity metrics.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks significant implementation details and does not demonstrate a fully functional product.",
+      "timestamp": "2026-03-12T19:53:15.079561+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v4",
+      "builder_name": "Builder-2",
+      "summary": "Added basic data visualization component to display productivity metrics using Chart.js.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T19:55:53.287671+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v4",
+      "builder_name": "Builder-3",
+      "summary": "Added a detailed feature section in the README to outline unique AI capabilities.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T19:55:53.287671+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v4",
+      "builder_name": "Builder-1",
+      "summary": "Added a loading spinner to enhance user experience during data fetch operations.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional implementation and detailed AI analytics features, which are critical for its success.",
+      "timestamp": "2026-03-12T19:55:53.287671+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v5",
+      "builder_name": "Builder-2",
+      "summary": "Added a basic AI analytics function that analyzes productivity data and suggests improvements.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T19:58:38.493146+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v5",
+      "builder_name": "Builder-3",
+      "summary": "Enhanced README with detailed setup instructions and contribution guidelines.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T19:58:38.493146+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v5",
+      "builder_name": "Builder-1",
+      "summary": "Implemented a user feedback section to enhance user engagement and gather insights.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional implementation and detailed AI features, which are critical for its success.",
+      "timestamp": "2026-03-12T19:58:38.493146+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v6",
+      "builder_name": "Builder-2",
+      "summary": "Implemented user authentication with JWT for secure access to the dashboard.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:01:21.516833+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v6",
+      "builder_name": "Builder-3",
+      "summary": "Enhanced the README with a section on project features to better inform users and potential contributors.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:01:21.516833+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v6",
+      "builder_name": "Builder-1",
+      "summary": "Added a user authentication feature to enhance data privacy and personalize user experience.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional implementation and detailed user experience considerations.",
+      "timestamp": "2026-03-12T20:01:21.516833+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v7",
+      "builder_name": "Builder-2",
+      "summary": "Refactored the App component to include a header and a productivity metrics section for improved data visualization.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:04:09.995337+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v7",
+      "builder_name": "Builder-3",
+      "summary": "Updated the README to include a section for frequently asked questions (FAQs) to assist users.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:04:09.995337+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v7",
+      "builder_name": "Builder-1",
+      "summary": "Implemented a user dashboard component that displays basic productivity metrics and AI-generated suggestions.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional implementation and detailed features, limiting its effectiveness and user experience.",
+      "timestamp": "2026-03-12T20:04:09.995337+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v8",
+      "builder_name": "Builder-2",
+      "summary": "Implemented a detailed data fetch service to retrieve productivity metrics from the back-end API.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:06:51.644047+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v8",
+      "builder_name": "Builder-3",
+      "summary": "Added a robust error handling mechanism in the server to enhance stability and user feedback.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:06:51.644047+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v8",
+      "builder_name": "Builder-1",
+      "summary": "Added a user-friendly navigation bar to improve the overall user experience of the dashboard.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional implementation and detailed user experience considerations.",
+      "timestamp": "2026-03-12T20:06:51.644047+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v9",
+      "builder_name": "Builder-2",
+      "summary": "Introduced a data visualization library (Chart.js) to enhance the dashboard's productivity metrics display.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:09:59.097782+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v9",
+      "builder_name": "Builder-3",
+      "summary": "Added a loading spinner component to improve user experience during data fetching.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:09:59.097782+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v9",
+      "builder_name": "Builder-1",
+      "summary": "Added a productivity metrics chart component to visualize user data insights.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional implementation and detailed features, limiting its effectiveness and user experience.",
+      "timestamp": "2026-03-12T20:09:59.097782+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v10",
+      "builder_name": "Builder-2",
+      "summary": "Implemented a basic data fetching service to retrieve user productivity metrics from the back-end API.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:12:49.820094+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v10",
+      "builder_name": "Builder-3",
+      "summary": "Enhanced the README with a detailed section on installation prerequisites to streamline the setup process for new contributors.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:12:49.820094+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v10",
+      "builder_name": "Builder-1",
+      "summary": "Enhanced the App component to include a sidebar for navigation and quick access to different sections of the dashboard.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional implementation and detailed user experience considerations.",
+      "timestamp": "2026-03-12T20:12:49.820094+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v11",
+      "builder_name": "Builder-2",
+      "summary": "Implemented a basic layout for the dashboard with a header, footer, and main content area to improve overall structure.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:15:50.962299+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v11",
+      "builder_name": "Builder-3",
+      "summary": "Created a basic layout for the dashboard with a header, sidebar, and main content area to improve UX and structure.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:15:50.962299+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v11",
+      "builder_name": "Builder-1",
+      "summary": "Added a user feedback form component to collect insights on user experience and suggestions for improvement.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional implementation and detailed features, which limits its effectiveness and user experience.",
+      "timestamp": "2026-03-12T20:15:50.962299+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v12",
+      "builder_name": "Builder-2",
+      "summary": "Implemented a basic data visualization component to display user productivity metrics on the dashboard.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:18:29.978916+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v12",
+      "builder_name": "Builder-3",
+      "summary": "Added comprehensive usage documentation for the API endpoints in the README file.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:18:29.978916+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v12",
+      "builder_name": "Builder-1",
+      "summary": "Added a loading state to the dashboard to improve user experience during data fetching.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a functional backend and comprehensive AI features, limiting its effectiveness and user experience.",
+      "timestamp": "2026-03-12T20:18:29.978916+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v13",
+      "builder_name": "Builder-2",
+      "summary": "Created a basic API endpoint to fetch productivity data from the server.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:19:39.420285+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v13",
+      "builder_name": "Builder-3",
+      "summary": "Enhanced README with a detailed troubleshooting section to assist users in resolving common setup issues.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:19:39.420285+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v13",
+      "builder_name": "Builder-1",
+      "summary": "Integrated a styled button component to enable users to refresh their productivity data manually.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks significant implementation details and functionality, with only basic front-end components and no back-end or AI features developed yet.",
+      "timestamp": "2026-03-12T20:19:39.420285+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v14",
+      "builder_name": "Builder-2",
+      "summary": "Established a basic API endpoint to fetch user productivity data, enabling data integration for the dashboard.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:22:16.812702+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v14",
+      "builder_name": "Builder-3",
+      "summary": "Added a loading spinner component to improve user feedback during data fetching.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:22:16.812702+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v14",
+      "builder_name": "Builder-1",
+      "summary": "Introduced a simple data visualization chart using Chart.js to enhance the dashboard's ability to display productivity metrics visually.",
+      "baseline_score": 42,
+      "candidate_score": 55,
+      "decision": "accepted",
+      "reason": "The project demonstrates basic functionality but lacks depth in implementation and user experience.",
+      "timestamp": "2026-03-12T20:22:16.812702+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v15",
+      "builder_name": "Builder-2",
+      "summary": "Integrated a basic back-end endpoint to serve mock productivity data to the front-end dashboard, enhancing data flow.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:25:02.055294+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v15",
+      "builder_name": "Builder-3",
+      "summary": "Enhanced the documentation in the README by adding a section on API integration guidelines to assist future developers.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:25:02.055294+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v15",
+      "builder_name": "Builder-1",
+      "summary": "Enhanced the data visualization by adding a tooltip feature to the chart for better user insights.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional backend and AI integration, which are critical for its intended purpose.",
+      "timestamp": "2026-03-12T20:25:02.055294+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v16",
+      "builder_name": "Builder-2",
+      "summary": "Implemented a back-end API endpoint to serve mock productivity data to the front-end dashboard, enhancing data integration.",
+      "baseline_score": 55,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:27:54.851460+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v16",
+      "builder_name": "Builder-3",
+      "summary": "Added a detailed section in the README for setting up the development environment, including instructions for installing Node.js and MongoDB.",
+      "baseline_score": 55,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:27:54.851460+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v16",
+      "builder_name": "Builder-1",
+      "summary": "Implemented an export feature that allows users to download their productivity data as a CSV file.",
+      "baseline_score": 55,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional backend and AI features, which are critical for its intended purpose.",
+      "timestamp": "2026-03-12T20:27:54.851460+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v17",
+      "builder_name": "Builder-2",
+      "summary": "Implemented a new API endpoint to serve user-specific productivity data dynamically, enhancing the dashboard's data flow capabilities.",
+      "baseline_score": 55,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:30:47.427905+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v17",
+      "builder_name": "Builder-3",
+      "summary": "Improved the README with a dedicated section for user feedback mechanisms to enhance user engagement.",
+      "baseline_score": 55,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:30:47.427905+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v17",
+      "builder_name": "Builder-1",
+      "summary": "Added responsive design elements to improve the user interface for mobile devices.",
+      "baseline_score": 55,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional backend and comprehensive AI features, limiting its effectiveness and user experience.",
+      "timestamp": "2026-03-12T20:30:47.427905+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v18",
+      "builder_name": "Builder-2",
+      "summary": "Implemented a backend API endpoint to serve dynamic productivity data based on user input.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:33:34.078522+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v18",
+      "builder_name": "Builder-3",
+      "summary": "Added unit tests for the main components of the dashboard to ensure reliability and stability during future development.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:33:34.078522+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v18",
+      "builder_name": "Builder-1",
+      "summary": "Implemented user authentication to enhance data security and personalized experience.",
+      "baseline_score": 42,
+      "candidate_score": 62,
+      "decision": "accepted",
+      "reason": "The project demonstrates a solid foundation but lacks depth in implementation and user experience.",
+      "timestamp": "2026-03-12T20:33:34.078522+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v19",
+      "builder_name": "Builder-2",
+      "summary": "Refactored the backend server to use middleware for handling CORS, improving the API's usability for cross-origin requests.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:36:22.058008+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v19",
+      "builder_name": "Builder-3",
+      "summary": "Enhanced the README with a detailed section on current project limitations and future improvements to guide contributors.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:36:22.058008+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v19",
+      "builder_name": "Builder-1",
+      "summary": "Added a user-friendly onboarding tutorial to guide new users through the dashboard's features.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional backend and detailed implementation of AI features, which are critical for the dashboard's effectiveness.",
+      "timestamp": "2026-03-12T20:36:22.058008+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v20",
+      "builder_name": "Builder-2",
+      "summary": "Refactored App.js to manage user authentication state more effectively using context API, enhancing scalability for future user management features.",
+      "baseline_score": 62,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:39:14.399391+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v20",
+      "builder_name": "Builder-3",
+      "summary": "Enhanced the README with a section on the project's architecture and design decisions to aid in understanding and contribution.",
+      "baseline_score": 62,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:39:14.399391+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v20",
+      "builder_name": "Builder-1",
+      "summary": "Improved the user login experience by adding error handling and feedback during authentication.",
+      "baseline_score": 62,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional backend and AI analytics features, which are critical for its success.",
+      "timestamp": "2026-03-12T20:39:14.399391+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v21",
+      "builder_name": "Builder-2",
+      "summary": "Added a loading state in the Dashboard component to improve user experience during data fetching.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:42:02.782715+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v21",
+      "builder_name": "Builder-3",
+      "summary": "Enhanced the README with a detailed section on user authentication processes to improve contributor understanding and project clarity.",
+      "baseline_score": 42,
+      "candidate_score": null,
+      "decision": "skipped_duplicate",
+      "reason": "Attempt skipped because it matches a recorded idea.",
+      "timestamp": "2026-03-12T20:42:02.782715+00:00"
+    },
+    {
+      "attempt_key": "ai-productivity-dashboard-v21",
+      "builder_name": "Builder-1",
+      "summary": "Implemented a visual feedback component to display real-time analysis results and suggestions on the Dashboard page, enhancing user engagement with actionable insights.",
+      "baseline_score": 42,
+      "candidate_score": 42,
+      "decision": "rejected",
+      "reason": "The project lacks a fully functional backend and comprehensive AI integration, limiting its effectiveness and user experience.",
+      "timestamp": "2026-03-12T20:42:02.782715+00:00"
+    }
+  ]
+}

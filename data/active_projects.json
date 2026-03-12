@@ -1,0 +1,174 @@
+{
+  "projects": [
+    {
+      "id": "042e3c5c14a1be14",
+      "title": "AI-Powered Negotiation Coach",
+      "source_title": "AI-Powered Negotiation Coach",
+      "source_description": "An app that provides strategies and feedback to enhance negotiation skills in personal and professional settings.",
+      "source_created_at": "2026-03-11T20:36:54.754252+00:00",
+      "slug": "ai-powered-negotiation-coach",
+      "status": "active",
+      "auto_run": false,
+      "target_score": 95,
+      "current_score": 62,
+      "stack_name": "AI-Powered Negotiation Coach",
+      "last_cycle_at": "2026-03-12T20:41:40.593012+00:00",
+      "last_accepted_summary": "Refine the README to include project vision and AI implementation details for better clarity.",
+      "ref_rubric": {
+        "summary": "The AI-Powered Negotiation Coach aims to leverage artificial intelligence to improve users' negotiation skills through personalized strategies and feedback. The project has the potential to fill a niche in personal and professional development, but its success will depend on the execution of its features and user experience.",
+        "criteria": [
+          {
+            "name": "Project Vision and Clarity",
+            "weight": 25,
+            "description": "Evaluates how clearly the project goals, target audience, and unique value proposition are defined. A strong vision should articulate the problem being solved and how the app stands out from existing solutions."
+          },
+          {
+            "name": "AI Implementation and Innovation",
+            "weight": 25,
+            "description": "Assesses the sophistication and originality of the AI algorithms used for providing negotiation strategies and feedback. This includes the quality of data used for training and the adaptability of the AI to different negotiation scenarios."
+          },
+          {
+            "name": "User Experience and Design",
+            "weight": 25,
+            "description": "Measures the intuitiveness and aesthetic appeal of the app's interface. A high score requires a seamless user journey, effective onboarding, and engaging design that enhances user interaction."
+          },
+          {
+            "name": "Effectiveness of Feedback Mechanisms",
+            "weight": 15,
+            "description": "Evaluates how well the app provides actionable feedback and strategies based on user performance. This includes the relevance and clarity of the feedback, as well as the ability to track user progress over time."
+          },
+          {
+            "name": "Market Viability and Scalability",
+            "weight": 10,
+            "description": "Assesses the potential for market adoption and growth. This includes analysis of target market size, competitive landscape, and potential for future feature expansion or monetization strategies."
+          }
+        ],
+        "scoring_notes": "Scores will be based on the clarity of the project vision, the depth of the AI implementation, the usability of the app, the effectiveness of the feedback mechanisms, and the overall market viability. Each criterion will be strictly evaluated to ensure a comprehensive assessment."
+      },
+      "lane": "unsupported",
+      "stage": "stalled",
+      "template_id": "",
+      "product_brief": {
+        "lane": "unsupported",
+        "title": "AI-Powered Negotiation Coach",
+        "opportunity_summary": "An app that provides strategies and feedback to enhance negotiation skills in personal and professional settings.",
+        "target_user": "",
+        "job_to_be_done": "",
+        "manual_workaround": "",
+        "pain_severity": "",
+        "roi": "",
+        "must_have_flow": "",
+        "icp": "",
+        "problem": "",
+        "success_metric": "",
+        "required_entities": [],
+        "must_have_screens": [],
+        "must_have_actions": [],
+        "demo_scenario": "",
+        "acceptance_criteria": []
+      },
+      "run_command": "uvicorn app.main:app --reload",
+      "test_command": "pytest -q",
+      "seed_status": "unknown",
+      "validation_status": "unknown",
+      "hard_gate_results": [],
+      "usable_mvp_at": null,
+      "stalled_reason": "This idea does not fit the supported B2B MVP lanes.",
+      "validation_artifacts": {}
+    },
+    {
+      "id": "99342c7348436748",
+      "title": "AI-powered productivity analytics dashboard",
+      "source_title": "AI-powered productivity analytics dashboard",
+      "source_description": "Visualizes productivity patterns and suggests improvements based on user data.",
+      "source_created_at": "2026-03-11T20:44:29.659571+00:00",
+      "slug": "ai-powered-productivity-analytics-dashboard",
+      "status": "active",
+      "auto_run": true,
+      "target_score": 95,
+      "current_score": 42,
+      "stack_name": "FastAPI + Jinja + HTMX + SQLite + SQLModel + pytest",
+      "last_cycle_at": "2026-03-12T20:42:02.782715+00:00",
+      "last_accepted_summary": "Implemented user authentication to enhance data security and personalized experience.",
+      "ref_rubric": {
+        "summary": "Hybrid rubric for AI-powered productivity analytics dashboard in lane ops-copilot.",
+        "criteria": [
+          {
+            "name": "Workflow usefulness",
+            "weight": 30,
+            "description": "Core user flow solves the target job to be done."
+          },
+          {
+            "name": "MVP completeness",
+            "weight": 25,
+            "description": "Essential screens, actions, and seeded demo data are present."
+          },
+          {
+            "name": "Usability",
+            "weight": 20,
+            "description": "The workflow is understandable and easy to try locally."
+          },
+          {
+            "name": "Lane fit",
+            "weight": 15,
+            "description": "The project clearly matches the chosen B2B workflow lane."
+          },
+          {
+            "name": "Quality and clarity",
+            "weight": 10,
+            "description": "Tests, README, and implementation quality support adoption."
+          }
+        ],
+        "scoring_notes": "Hard gates must pass before qualitative scoring can count."
+      },
+      "lane": "ops-copilot",
+      "stage": "qualified",
+      "template_id": "ops-copilot-v1",
+      "product_brief": {
+        "lane": "ops-copilot",
+        "title": "AI-powered productivity analytics dashboard",
+        "opportunity_summary": "Provide operations teams with a tool to visualize productivity patterns and suggest actionable improvements based on real-time user data.",
+        "target_user": "Operations analysts or managers reviewing KPI trends",
+        "job_to_be_done": "Spot trends, inspect a team, and create follow-up actions from the dashboard.",
+        "manual_workaround": "Managers review stale exports and maintain separate action trackers.",
+        "pain_severity": "High",
+        "roi": "Cut reporting prep time and turn insights into tracked next steps.",
+        "must_have_flow": "Review KPI cards, inspect a team, then create a follow-up action or export the current view.",
+        "icp": "Mid-sized to large enterprises with dedicated operations teams focused on performance metrics.",
+        "problem": "Current reporting methods are inefficient, leading to delays in decision-making and missed opportunities for improvement.",
+        "success_metric": "Reduction in time spent on reporting and an increase in actionable insights generated per week.",
+        "required_entities": [
+          "KPI data",
+          "User engagement metrics",
+          "Action tracking"
+        ],
+        "must_have_screens": [
+          "Dashboard overview",
+          "Team performance insights",
+          "Action creation interface"
+        ],
+        "must_have_actions": [
+          "View KPI trends",
+          "Inspect team performance",
+          "Create follow-up actions",
+          "Export data"
+        ],
+        "demo_scenario": "An operations manager logs into the dashboard, reviews the latest KPI trends, identifies a drop in team productivity, inspects the relevant metrics, and creates a follow-up action to address the issue.",
+        "acceptance_criteria": [
+          "Dashboard displays real-time KPI data",
+          "Users can filter and inspect team performance",
+          "Follow-up actions can be created directly from insights",
+          "Export functionality is available for reporting"
+        ]
+      },
+      "run_command": "uvicorn app.main:app --reload",
+      "test_command": "pytest -q",
+      "seed_status": "unknown",
+      "validation_status": "unknown",
+      "hard_gate_results": [],
+      "usable_mvp_at": null,
+      "stalled_reason": null,
+      "validation_artifacts": {}
+    }
+  ]
+}
