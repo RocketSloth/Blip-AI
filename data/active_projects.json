@@ -1,82 +1,6 @@
 {
   "projects": [
     {
-      "id": "042e3c5c14a1be14",
-      "title": "AI-Powered Negotiation Coach",
-      "source_title": "AI-Powered Negotiation Coach",
-      "source_description": "An app that provides strategies and feedback to enhance negotiation skills in personal and professional settings.",
-      "source_created_at": "2026-03-11T20:36:54.754252+00:00",
-      "slug": "ai-powered-negotiation-coach",
-      "status": "active",
-      "auto_run": false,
-      "target_score": 95,
-      "current_score": 62,
-      "stack_name": "AI-Powered Negotiation Coach",
-      "last_cycle_at": "2026-03-12T20:41:40.593012+00:00",
-      "last_accepted_summary": "Refine the README to include project vision and AI implementation details for better clarity.",
-      "ref_rubric": {
-        "summary": "The AI-Powered Negotiation Coach aims to leverage artificial intelligence to improve users' negotiation skills through personalized strategies and feedback. The project has the potential to fill a niche in personal and professional development, but its success will depend on the execution of its features and user experience.",
-        "criteria": [
-          {
-            "name": "Project Vision and Clarity",
-            "weight": 25,
-            "description": "Evaluates how clearly the project goals, target audience, and unique value proposition are defined. A strong vision should articulate the problem being solved and how the app stands out from existing solutions."
-          },
-          {
-            "name": "AI Implementation and Innovation",
-            "weight": 25,
-            "description": "Assesses the sophistication and originality of the AI algorithms used for providing negotiation strategies and feedback. This includes the quality of data used for training and the adaptability of the AI to different negotiation scenarios."
-          },
-          {
-            "name": "User Experience and Design",
-            "weight": 25,
-            "description": "Measures the intuitiveness and aesthetic appeal of the app's interface. A high score requires a seamless user journey, effective onboarding, and engaging design that enhances user interaction."
-          },
-          {
-            "name": "Effectiveness of Feedback Mechanisms",
-            "weight": 15,
-            "description": "Evaluates how well the app provides actionable feedback and strategies based on user performance. This includes the relevance and clarity of the feedback, as well as the ability to track user progress over time."
-          },
-          {
-            "name": "Market Viability and Scalability",
-            "weight": 10,
-            "description": "Assesses the potential for market adoption and growth. This includes analysis of target market size, competitive landscape, and potential for future feature expansion or monetization strategies."
-          }
-        ],
-        "scoring_notes": "Scores will be based on the clarity of the project vision, the depth of the AI implementation, the usability of the app, the effectiveness of the feedback mechanisms, and the overall market viability. Each criterion will be strictly evaluated to ensure a comprehensive assessment."
-      },
-      "lane": "unsupported",
-      "stage": "stalled",
-      "template_id": "",
-      "product_brief": {
-        "lane": "unsupported",
-        "title": "AI-Powered Negotiation Coach",
-        "opportunity_summary": "An app that provides strategies and feedback to enhance negotiation skills in personal and professional settings.",
-        "target_user": "",
-        "job_to_be_done": "",
-        "manual_workaround": "",
-        "pain_severity": "",
-        "roi": "",
-        "must_have_flow": "",
-        "icp": "",
-        "problem": "",
-        "success_metric": "",
-        "required_entities": [],
-        "must_have_screens": [],
-        "must_have_actions": [],
-        "demo_scenario": "",
-        "acceptance_criteria": []
-      },
-      "run_command": "uvicorn app.main:app --reload",
-      "test_command": "pytest -q",
-      "seed_status": "unknown",
-      "validation_status": "unknown",
-      "hard_gate_results": [],
-      "usable_mvp_at": null,
-      "stalled_reason": "This idea does not fit the supported B2B MVP lanes.",
-      "validation_artifacts": {}
-    },
-    {
       "id": "99342c7348436748",
       "title": "AI-powered productivity analytics dashboard",
       "source_title": "AI-powered productivity analytics dashboard",
@@ -84,12 +8,12 @@
       "source_created_at": "2026-03-11T20:44:29.659571+00:00",
       "slug": "ai-powered-productivity-analytics-dashboard",
       "status": "active",
-      "auto_run": true,
+      "auto_run": false,
       "target_score": 95,
-      "current_score": 42,
+      "current_score": 78,
       "stack_name": "FastAPI + Jinja + HTMX + SQLite + SQLModel + pytest",
-      "last_cycle_at": "2026-03-12T20:42:02.782715+00:00",
-      "last_accepted_summary": "Implemented user authentication to enhance data security and personalized experience.",
+      "last_cycle_at": "2026-03-13T03:54:25.177256+00:00",
+      "last_accepted_summary": "The MVP effectively addresses the core problem of inefficient reporting methods by providing a user-friendly dashboard for operations teams. However, there are some usability concerns and minor implementation warnings that could affect user experience.",
       "ref_rubric": {
         "summary": "Hybrid rubric for AI-powered productivity analytics dashboard in lane ops-copilot.",
         "criteria": [
@@ -122,7 +46,7 @@
         "scoring_notes": "Hard gates must pass before qualitative scoring can count."
       },
       "lane": "ops-copilot",
-      "stage": "qualified",
+      "stage": "stalled",
       "template_id": "ops-copilot-v1",
       "product_brief": {
         "lane": "ops-copilot",
@@ -163,12 +87,208 @@
       },
       "run_command": "uvicorn app.main:app --reload",
       "test_command": "pytest -q",
-      "seed_status": "unknown",
-      "validation_status": "unknown",
-      "hard_gate_results": [],
+      "seed_status": "loaded",
+      "validation_status": "passed",
+      "hard_gate_results": [
+        {
+          "key": "scaffold_contract",
+          "label": "Scaffold contract present",
+          "passed": true,
+          "details": "All template files must exist.",
+          "artifact_path": null
+        },
+        {
+          "key": "run_command",
+          "label": "Run command imports app",
+          "passed": true,
+          "details": "AI-powered productivity analytics dashboard",
+          "artifact_path": "artifacts/import-check.log"
+        },
+        {
+          "key": "smoke_test",
+          "label": "Smoke test passes",
+          "passed": true,
+          "details": ".                                                                        [100%]\n============================== warnings summary ===============================\napp\\main.py:63\n  C:\\Users\\bkbwa\\OneDrive - UNT System\\Desktop\\Projects\\Blip-AI\\data\\projects\\ai-powered-productivity-analytics-dashboard\\app...",
+          "artifact_path": "artifacts/smoke-test.log"
+        },
+        {
+          "key": "seed_data",
+          "label": "Seeded demo data loads",
+          "passed": true,
+          "details": ".                                                                        [100%]\n============================== warnings summary ===============================\napp\\main.py:63\n  C:\\Users\\bkbwa\\OneDrive - UNT System\\Desktop\\Projects\\Blip-AI\\data\\projects\\ai-powered-productivity-analytics-dashboard\\app...",
+          "artifact_path": "artifacts/seed-test.log"
+        },
+        {
+          "key": "workflow_test",
+          "label": "Primary workflow test passes",
+          "passed": true,
+          "details": ".                                                                        [100%]\n============================== warnings summary ===============================\napp\\main.py:63\n  C:\\Users\\bkbwa\\OneDrive - UNT System\\Desktop\\Projects\\Blip-AI\\data\\projects\\ai-powered-productivity-analytics-dashboard\\app...",
+          "artifact_path": "artifacts/workflow-test.log"
+        },
+        {
+          "key": "readme_instructions",
+          "label": "README contains local run instructions",
+          "passed": true,
+          "details": "README must include install, run, and test commands.",
+          "artifact_path": null
+        }
+      ],
+      "usable_mvp_at": "2026-03-12T22:47:15.156500+00:00",
+      "stalled_reason": "No meaningful file changes were proposed.",
+      "validation_artifacts": {
+        "import_check": "artifacts/import-check.log",
+        "smoke_test": "artifacts/smoke-test.log",
+        "seed_test": "artifacts/seed-test.log",
+        "workflow_test": "artifacts/workflow-test.log"
+      },
+      "source_type": "bucket",
+      "source_repo_url": null
+    },
+    {
+      "id": "3688196fc97f49c8",
+      "title": "openclaw",
+      "source_title": "openclaw",
+      "source_description": "# \ud83e\udd9e OpenClaw \u2014 Personal AI Assistant",
+      "source_created_at": "2026-03-13T04:15:29.113091+00:00",
+      "slug": "openclaw",
+      "status": "active",
+      "auto_run": true,
+      "target_score": 95,
+      "current_score": 0,
+      "stack_name": "FastAPI + Jinja + HTMX + SQLite + SQLModel + pytest",
+      "last_cycle_at": "2026-03-13T04:25:56.653716+00:00",
+      "last_accepted_summary": null,
+      "ref_rubric": {
+        "summary": "Hybrid rubric for openclaw in lane ops-copilot.",
+        "criteria": [
+          {
+            "name": "Workflow usefulness",
+            "weight": 30,
+            "description": "Core user flow solves the target job to be done."
+          },
+          {
+            "name": "MVP completeness",
+            "weight": 25,
+            "description": "Essential screens, actions, and seeded demo data are present."
+          },
+          {
+            "name": "Usability",
+            "weight": 20,
+            "description": "The workflow is understandable and easy to try locally."
+          },
+          {
+            "name": "Lane fit",
+            "weight": 15,
+            "description": "The project clearly matches the chosen B2B workflow lane."
+          },
+          {
+            "name": "Quality and clarity",
+            "weight": 10,
+            "description": "Tests, README, and implementation quality support adoption."
+          }
+        ],
+        "scoring_notes": "Hard gates must pass before qualitative scoring can count."
+      },
+      "lane": "ops-copilot",
+      "stage": "stalled",
+      "template_id": "ops-copilot-v1",
+      "product_brief": {
+        "lane": "ops-copilot",
+        "title": "OpenClaw",
+        "opportunity_summary": "OpenClaw streamlines operations management by providing a personal AI assistant that helps operations managers efficiently review and manage internal queues, reducing bottlenecks and improving task follow-up.",
+        "target_user": "Operations managers coordinating internal queues",
+        "job_to_be_done": "Review the queue, capture context, and move operational tasks forward quickly.",
+        "manual_workaround": "Teams manage the queue in shared spreadsheets and chat threads.",
+        "pain_severity": "High",
+        "roi": "Reduce time spent triaging operational bottlenecks and missed follow-ups.",
+        "must_have_flow": "Review the queue, open a task, record the latest note, and save the next action.",
+        "icp": "Mid-sized to large enterprises with complex operational workflows requiring efficient task management.",
+        "problem": "Current methods of managing operational tasks are inefficient, leading to delays and missed follow-ups.",
+        "success_metric": "Reduction in average time to resolve operational tasks and increase in task follow-up rates.",
+        "required_entities": [
+          "Task",
+          "Queue",
+          "Note",
+          "User"
+        ],
+        "must_have_screens": [
+          "Queue Overview",
+          "Task Detail",
+          "Note Entry",
+          "Action Confirmation"
+        ],
+        "must_have_actions": [
+          "Review Queue",
+          "Open Task",
+          "Record Note",
+          "Save Action"
+        ],
+        "demo_scenario": "An operations manager logs into OpenClaw, reviews the current queue, opens a task that requires attention, records a note about the task's context, and saves the next action to ensure follow-up.",
+        "acceptance_criteria": [
+          "User can view and filter the queue effectively.",
+          "User can open a task and add context notes.",
+          "User can save actions and receive reminders for follow-ups.",
+          "System reduces time spent on task management by at least 30%."
+        ]
+      },
+      "run_command": "uvicorn app.main:app --reload",
+      "test_command": "pytest -q",
+      "seed_status": "missing",
+      "validation_status": "failed",
+      "hard_gate_results": [
+        {
+          "key": "scaffold_contract",
+          "label": "Scaffold contract present",
+          "passed": false,
+          "details": "All template files must exist.",
+          "artifact_path": null
+        },
+        {
+          "key": "run_command",
+          "label": "Run command imports app",
+          "passed": false,
+          "details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    from app.main import app; print(app.title)\n    ^^^^^^^^^^^^^^^^^^^^^^^^\nModuleNotFoundError: No module named 'app'",
+          "artifact_path": "artifacts/import-check.log"
+        },
+        {
+          "key": "smoke_test",
+          "label": "Smoke test passes",
+          "passed": false,
+          "details": "no tests ran in 0.01s\n\nERROR: file or directory not found: tests/test_app.py::test_homepage_smoke",
+          "artifact_path": "artifacts/smoke-test.log"
+        },
+        {
+          "key": "seed_data",
+          "label": "Seeded demo data loads",
+          "passed": false,
+          "details": "no tests ran in 0.00s\n\nERROR: file or directory not found: tests/test_app.py::test_seeded_demo_data",
+          "artifact_path": "artifacts/seed-test.log"
+        },
+        {
+          "key": "workflow_test",
+          "label": "Primary workflow test passes",
+          "passed": false,
+          "details": "no tests ran in 0.00s\n\nERROR: file or directory not found: tests/test_app.py::test_primary_workflow",
+          "artifact_path": "artifacts/workflow-test.log"
+        },
+        {
+          "key": "readme_instructions",
+          "label": "README contains local run instructions",
+          "passed": false,
+          "details": "README must include install, run, and test commands.",
+          "artifact_path": null
+        }
+      ],
       "usable_mvp_at": null,
-      "stalled_reason": null,
-      "validation_artifacts": {}
+      "stalled_reason": "Rebuild the canonical scaffold for the selected lane.",
+      "validation_artifacts": {
+        "import_check": "artifacts/import-check.log",
+        "smoke_test": "artifacts/smoke-test.log",
+        "seed_test": "artifacts/seed-test.log",
+        "workflow_test": "artifacts/workflow-test.log"
+      },
+      "source_type": "github",
+      "source_repo_url": "https://github.com/openclaw/openclaw.git"
     }
   ]
 }

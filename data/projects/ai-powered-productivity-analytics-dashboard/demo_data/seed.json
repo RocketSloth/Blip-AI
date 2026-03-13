@@ -1,0 +1,29 @@
+{
+  "records": [
+    {
+      "title": "Escalated invoice queue",
+      "owner": "Finance Ops",
+      "category": "High",
+      "status": "Open",
+      "detail": "Aging report crossed SLA for 12 invoices.",
+      "recommendation": "Notify owners and bundle work by vendor.",
+      "note": "Waiting on vendor callbacks.",
+      "action_taken": "Waiting",
+      "metric_one": 12,
+      "metric_two": 5
+    },
+    {
+      "title": "Field inspection follow-up",
+      "owner": "Operations Lead",
+      "category": "Medium",
+      "status": "Review",
+      "detail": "Three inspections show the same missing permit.",
+      "recommendation": "Create one checklist for the recurring issue.",
+      "note": "Needs owner assignment.",
+      "action_taken": "Bundle",
+      "metric_one": 3,
+      "metric_two": 1
+    }
+  ],
+  "actions": []
+}

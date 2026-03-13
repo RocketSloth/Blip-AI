@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid two-col">
+  <section class="panel">
+    <h2>{{ record.title }}</h2>
+    <p><strong>{{ config.secondary_label }}:</strong> {{ record.owner }}</p>
+    <p><strong>{{ config.category_label }}:</strong> {{ record.category }}</p>
+    <p><strong>Status:</strong> {{ record.status }}</p>
+    <p><strong>Context:</strong> {{ record.detail }}</p>
+    <p><strong>Recommendation:</strong> {{ record.recommendation }}</p>
+    <p><strong>{{ config.note_label }}:</strong> {{ record.note }}</p>
+    <p><strong>{{ config.action_label }}:</strong> {{ record.action_taken }}</p>
+    <p><a href="/">Back to {{ config.list_heading|lower }}</a></p>
+  </section>
+  <section class="panel">
+    <h2>{{ config.detail_heading }}</h2>
+    <form hx-post="/records/{{ record.id }}/act" method="post">
+      <label>
+        {{ config.note_label }}
+        <textarea name="note" rows="4" required>{{ record.note }}</textarea>
+      </label>
+      <label>
+        {{ config.action_label }}
+        <input name="action_taken" value="{{ record.action_taken }}" required />
+      </label>
+      <button type="submit">{{ config.primary_button }}</button>
+    </form>
+  </section>
+</div>
+{% endblock %}

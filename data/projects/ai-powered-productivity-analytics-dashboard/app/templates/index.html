@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid two-col">
+  <section class="panel">
+    <h2>{{ config.list_heading }}</h2>
+    <div class="stats">
+      {% for stat in stats %}
+      <div class="stat"><span class="muted">{{ stat.label }}</span><strong>{{ stat.value }}</strong></div>
+      {% endfor %}
+    </div>
+    {% if config.filter_enabled %}
+    <form method="get">
+      <label>
+        Filter by team
+        <select name="group">
+          <option value="">All teams</option>
+          {% for group in available_groups %}
+          <option value="{{ group }}" {% if group == selected_group %}selected{% endif %}>{{ group }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit">Apply filter</button>
+    </form>
+    {% endif %}
+    {% if config.export_enabled %}
+    <p><a href="/export.csv{% if selected_group %}?group={{ selected_group }}{% endif %}">Export current view as CSV</a></p>
+    {% endif %}
+    <table>
+      <thead>
+        <tr>
+          <th>{{ config.primary_label }}</th>
+          <th>{{ config.secondary_label }}</th>
+          <th>{{ config.category_label }}</th>
+          <th>Status</th>
+          <th>Recommendation</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in records %}
+        <tr>
+          <td><a href="/records/{{ record.id }}">{{ record.title }}</a></td>
+          <td>{{ record.owner }}</td>
+          <td>{{ record.category }}</td>
+          <td>{{ record.status }}</td>
+          <td>{{ record.recommendation }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <section class="panel">
+    {% if config.workflow_mode == "create-action" %}
+    <h2>Follow-Up Actions</h2>
+    <form hx-post="/actions" method="post">
+      <label>
+        Team
+        <select name="record_title">
+          {% for group in available_groups %}
+          <option value="{{ group }}">{{ group }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Action title
+        <input name="title" required />
+      </label>
+      <label>
+        Action owner
+        <input name="owner" required />
+      </label>
+      <button type="submit">{{ config.primary_button }}</button>
+    </form>
+    <table>
+      <thead><tr><th>Team</th><th>Action</th><th>Owner</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for action in actions %}
+        <tr>
+          <td>{{ action.record_title }}</td>
+          <td>{{ action.title }}</td>
+          <td>{{ action.owner }}</td>
+          <td>{{ action.status }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <h2>Primary Workflow</h2>
+    <p class="muted">Open a record, update {{ config.note_label|lower }}, and set {{ config.action_label|lower }} to move the workflow forward.</p>
+    <ul>
+      <li>Review the highest-priority record</li>
+      <li>Capture the latest context</li>
+      <li>Save the action taken so the queue stays usable</li>
+    </ul>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

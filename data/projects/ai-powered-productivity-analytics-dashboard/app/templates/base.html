@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{ config.project_title }}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", sans-serif;
+        background: linear-gradient(180deg, #eef4fb 0%, #f7f9fc 100%);
+        color: #162336;
+      }
+      .shell { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
+      .hero {
+        background: linear-gradient(135deg, #12324f, #0f766e);
+        color: white;
+        border-radius: 22px;
+        padding: 1.5rem;
+      }
+      .hero p { color: rgba(255,255,255,0.86); max-width: 760px; }
+      .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+      .chip { border-radius: 999px; padding: 0.28rem 0.62rem; background: rgba(255,255,255,0.15); }
+      .grid { display: grid; gap: 1rem; margin-top: 1rem; }
+      .two-col { grid-template-columns: 1.35fr 1fr; }
+      .panel { background: white; border: 1px solid #d7dee7; border-radius: 18px; padding: 1rem 1.1rem; }
+      .stats { display: grid; gap: 0.85rem; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+      .stat { border: 1px solid #d7dee7; border-radius: 14px; padding: 0.9rem; }
+      .stat strong { display: block; font-size: 1.5rem; margin-top: 0.25rem; }
+      table { width: 100%; border-collapse: collapse; }
+      th, td { padding: 0.7rem 0.55rem; border-bottom: 1px solid #d7dee7; text-align: left; vertical-align: top; }
+      form { display: grid; gap: 0.75rem; }
+      input, select, textarea, button { font: inherit; }
+      input, select, textarea {
+        width: 100%;
+        padding: 0.65rem 0.7rem;
+        border-radius: 10px;
+        border: 1px solid #d7dee7;
+      }
+      button {
+        border: none;
+        border-radius: 10px;
+        background: #0f766e;
+        color: white;
+        padding: 0.7rem 0.95rem;
+        cursor: pointer;
+        font-weight: 700;
+      }
+      a { color: #0f4f7a; text-decoration: none; }
+      .muted { color: #5f6e81; }
+      @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <section class="hero">
+        <h1>{{ config.project_title }}</h1>
+        <p>{{ config.problem }}</p>
+        <div class="chips">
+          <span class="chip">{{ config.lane_label }}</span>
+          <span class="chip">Target user: {{ config.target_user }}</span>
+          <span class="chip">Success metric: {{ config.success_metric }}</span>
+        </div>
+        <p class="muted">Must-have flow: {{ config.workflow }}</p>
+      </section>
+      {% block content %}{% endblock %}
+    </div>
+  </body>
+</html>

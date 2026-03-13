@@ -321,6 +321,30 @@
         <span id="status" class="status-line"></span>
       </div>
 
+      <details class="panel section" id="githubImportPanel">
+        <summary><strong>Import from GitHub</strong> <span class="muted">Clone a repo and improve it with instructions or YOLO</span></summary>
+        <div class="section-body">
+          <p class="muted">Paste a public GitHub repo URL. The repo will be cloned and added as a project. Then add instructions or use YOLO to generate them, and run improvement.</p>
+          <div class="toolbar" style="margin-bottom: 0.8rem;">
+            <input type="text" id="repoUrl" placeholder="https://github.com/owner/repo" style="flex: 1; min-width: 280px; padding: 0.6rem; border-radius: 10px; border: 1px solid var(--edge); background: #0a1322; color: var(--text);" />
+            <button id="importRepo">Import repo</button>
+          </div>
+          <span id="importStatus" class="status-line muted"></span>
+        </div>
+      </details>
+
+      <details class="panel section" id="projectTypesPanel">
+        <summary><strong>Project types (lanes)</strong> <span class="muted">Choose which idea types agents can work on</span></summary>
+        <div class="section-body">
+          <p class="muted">Enable or disable each project type and optionally edit its label and keywords. Research and promotion only use enabled types.</p>
+          <div id="lanesForm"></div>
+          <div class="toolbar" style="margin-top: 0.8rem;">
+            <button id="saveLanes">Save project types</button>
+            <span id="lanesStatus" class="status-line muted"></span>
+          </div>
+        </div>
+      </details>
+
       <div class="grid two-col">
         <div class="panel">
           <h2>Active MVP Factory</h2>
@@ -499,6 +523,9 @@
         const changedFiles = (attempt.changed_files || []).length
           ? `Changed: ${attempt.changed_files.join(', ')}`
           : 'No file changes recorded';
+        const repoStats = attempt.chunk_count || attempt.files_considered || attempt.skipped_files
+          ? `Repo analysis: ${attempt.files_considered || 0} files, ${attempt.chunk_count || 0} chunks, ${attempt.skipped_files || 0} skipped`
+          : '';
 
         return `
           <div class="attempt">
@@ -506,6 +533,8 @@
             <div>${escapeHtml(attempt.summary)}</div>
             <div class="muted">${escapeHtml(scoreLine)}</div>
             <div class="muted">${escapeHtml(changedFiles)}</div>
+            ${repoStats ? `<div class="muted">${escapeHtml(repoStats)}</div>` : ''}
+            ${attempt.llm_summary ? `<div class="muted">LLM summary: ${escapeHtml(attempt.llm_summary)}</div>` : ''}
             <div class="muted">${escapeHtml(attempt.reason || '')}</div>
             ${attempt.next_task ? `<div class="muted">Next task: ${escapeHtml(attempt.next_task)}</div>` : ''}
             <div class="muted">${escapeHtml(attempt.timestamp)}</div>
@@ -540,6 +569,7 @@
           const brief = project.product_brief || {};
           const validation = project.validation_summary || {};
           const gates = project.hard_gate_results || [];
+          const latestAttempt = project.latest_attempt || null;
           const attemptsHtml = (project.recent_attempts || []).length
             ? `<div class="attempt-list">${project.recent_attempts.map(attemptHtml).join('')}</div>`
             : '<div class="empty">No attempts recorded yet.</div>';
@@ -562,11 +592,12 @@
                     validation ${escapeHtml(project.validation_status || 'unknown')}
                   </span>
                   <span class="chip ${project.auto_run ? 'pass' : 'off'}">${project.auto_run ? 'auto-run on' : 'auto-run off'}</span>
+                  ${project.source_type === 'github' ? '<span class="chip">GitHub import</span><span class="chip">full-project mode</span>' : ''}
                 </div>
               </div>
               <div class="inline-actions">
-                <button data-project-run="${escapeHtml(project.id)}">Run pipeline</button>
-                <button class="secondary" data-project-build="${escapeHtml(project.id)}">Build scaffold</button>
+                <button data-project-run="${escapeHtml(project.id)}">${project.source_type === 'github' ? 'Run improvement' : 'Run pipeline'}</button>
+                ${project.source_type !== 'github' ? `<button class="secondary" data-project-build="${escapeHtml(project.id)}">Build scaffold</button>` : ''}
                 <button class="ghost" data-project-validate="${escapeHtml(project.id)}">Validate</button>
                 <button class="ghost" data-project-download="${escapeHtml(project.id)}">Download repo</button>
                 <label class="checkbox">
@@ -575,6 +606,16 @@
                 </label>
               </div>
             </div>
+            ${project.source_type === 'github' ? `
+            <div class="instructions-block" style="margin: 0.8rem 0; padding: 0.8rem; background: rgba(11,19,35,0.6); border-radius: 12px; border: 1px solid var(--edge);">
+              <span class="label">Improvement instructions</span>
+              <textarea data-project-instructions="${escapeHtml(project.id)}" rows="4" placeholder="Describe how agents should improve this project, or use YOLO to generate from the repo." style="width: 100%; margin-top: 0.4rem; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--edge); background: #0a1322; color: var(--text); resize: vertical;">${escapeHtml(project.instructions || '')}</textarea>
+              <div class="toolbar" style="margin-top: 0.5rem;">
+                <button data-project-save-instructions="${escapeHtml(project.id)}" class="secondary">Save instructions</button>
+                <button data-project-yolo="${escapeHtml(project.id)}" class="ghost">YOLO – generate from repo</button>
+              </div>
+            </div>
+            ` : ''}
 
             <div class="subgrid">
               <div class="grid three-col">
@@ -593,6 +634,24 @@
                   <div>${escapeHtml(brief.demo_scenario || 'Not planned yet')}</div>
                 </div>
               </div>
+              ${project.source_type === 'github' ? `
+              <div class="grid three-col">
+                <div class="info-box">
+                  <span class="label">Last improvement summary</span>
+                  <div>${escapeHtml((latestAttempt && (latestAttempt.llm_summary || latestAttempt.summary)) || project.last_accepted_summary || 'No full-project run yet')}</div>
+                </div>
+                <div class="info-box">
+                  <span class="label">Full-project analysis</span>
+                  <div>${escapeHtml(`${latestAttempt?.files_considered || 0} files considered`)}</div>
+                  <div class="muted">${escapeHtml(`${latestAttempt?.chunk_count || 0} chunks, ${latestAttempt?.skipped_files || 0} skipped`)}</div>
+                </div>
+                <div class="info-box">
+                  <span class="label">Last change set</span>
+                  <div>${escapeHtml(`${(latestAttempt?.changed_files || []).length} changed file(s)`)}</div>
+                  <div class="muted">${escapeHtml((latestAttempt?.changed_files || []).slice(0, 4).join(', ') || 'No applied edits yet')}</div>
+                </div>
+              </div>
+              ` : ''}
 
               <div class="grid two-col">
                 <div>
@@ -639,7 +698,15 @@
 
         container.querySelectorAll('[data-project-run]').forEach((button) => {
           button.addEventListener('click', async () => {
-            await postAndRefresh(`/api/projects/${button.dataset.projectRun}/run`, { method: 'POST' }, 'Running full pipeline...', 'Pipeline run complete');
+            const projectId = button.dataset.projectRun;
+            const project = (await fetchJson('/api/state')).active_projects?.find((p) => p.id === projectId);
+            const isGitHub = project?.source_type === 'github';
+            await postAndRefresh(
+              `/api/projects/${projectId}/run`,
+              { method: 'POST' },
+              isGitHub ? 'Running full-project chunked improvement...' : 'Running full pipeline...',
+              isGitHub ? 'Full-project improvement run complete' : 'Pipeline run complete'
+            );
           });
         });
 
@@ -658,6 +725,45 @@
         container.querySelectorAll('[data-project-download]').forEach((button) => {
           button.addEventListener('click', () => {
             window.location.href = `/api/projects/${encodeURIComponent(button.dataset.projectDownload)}/download`;
+          });
+        });
+
+        container.querySelectorAll('[data-project-save-instructions]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const projectId = button.dataset.projectSaveInstructions;
+            const textarea = container.querySelector(`[data-project-instructions="${projectId}"]`);
+            const instructions = (textarea && textarea.value) ? textarea.value : '';
+            const status = document.getElementById('status');
+            status.textContent = 'Saving instructions...';
+            try {
+              await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/instructions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ instructions }),
+              });
+              status.textContent = 'Instructions saved.';
+              setTimeout(() => { status.textContent = ''; }, 2000);
+            } catch (e) {
+              status.textContent = e.message || 'Save failed';
+            }
+          });
+        });
+
+        container.querySelectorAll('[data-project-yolo]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const projectId = button.dataset.projectYolo;
+            const status = document.getElementById('status');
+            status.textContent = 'Generating instructions from the full project (chunked YOLO)...';
+            try {
+              const data = await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/instructions/yolo`, { method: 'POST' });
+              const textarea = container.querySelector(`[data-project-instructions="${projectId}"]`);
+              if (textarea && data.instructions != null) textarea.value = data.instructions;
+              status.textContent = 'Full-project YOLO instructions generated.';
+              setTimeout(() => { status.textContent = ''; }, 2000);
+              await fetchState();
+            } catch (e) {
+              status.textContent = e.message || 'YOLO failed';
+            }
           });
         });
 
@@ -726,6 +832,34 @@
         });
       }
 
+      function renderLanesForm(lanes) {
+        const container = document.getElementById('lanesForm');
+        if (!lanes || !lanes.length) {
+          container.innerHTML = '<p class="muted">No project types configured.</p>';
+          return;
+        }
+        container.innerHTML = lanes.map((lane) => `
+          <div class="lane-row" style="margin-bottom: 0.9rem; padding: 0.6rem 0; border-bottom: 1px solid var(--edge);">
+            <label class="checkbox" style="display: inline-flex; margin-right: 1rem;">
+              <input type="checkbox" data-lane-id="${escapeHtml(lane.id)}" data-lane-enabled ${lane.enabled ? 'checked' : ''} />
+              Enabled
+            </label>
+            <strong style="margin-right: 0.5rem;">${escapeHtml(lane.id)}</strong>
+            <input type="text" data-lane-id="${escapeHtml(lane.id)}" data-lane-label value="${escapeHtml(lane.label || '')}" placeholder="Label" style="width: 220px; padding: 0.4rem; border-radius: 8px; border: 1px solid var(--edge); background: #0a1322; color: var(--text); margin-right: 0.5rem;" />
+            <input type="text" data-lane-id="${escapeHtml(lane.id)}" data-lane-keywords value="${escapeHtml((lane.keywords || []).join(', '))}" placeholder="Keywords (comma-separated)" style="flex: 1; min-width: 200px; padding: 0.4rem; border-radius: 8px; border: 1px solid var(--edge); background: #0a1322; color: var(--text);" />
+          </div>
+        `).join('');
+      }
+
+      async function fetchLanes() {
+        try {
+          const data = await fetchJson('/api/lanes');
+          renderLanesForm(data.lanes || []);
+        } catch (e) {
+          document.getElementById('lanesForm').innerHTML = '<p class="muted">Failed to load project types.</p>';
+        }
+      }
+
       async function fetchState() {
         const data = await fetchJson('/api/state');
         document.getElementById('heartbeat').value = data.heartbeat_seconds;
@@ -773,6 +907,61 @@
 
       fetchState().catch((error) => {
         document.getElementById('agentInfo').textContent = error.message || 'Failed to load state';
+      });
+      fetchLanes();
+
+      document.getElementById('saveLanes').addEventListener('click', async () => {
+        const form = document.getElementById('lanesForm');
+        const laneIds = [...new Set([...form.querySelectorAll('[data-lane-id]')].map((el) => el.dataset.laneId))];
+        const lanes = laneIds.map((id) => {
+          const enabledEl = form.querySelector(`[data-lane-id="${id}"][data-lane-enabled]`);
+          const labelEl = form.querySelector(`[data-lane-id="${id}"][data-lane-label]`);
+          const keywordsEl = form.querySelector(`[data-lane-id="${id}"][data-lane-keywords]`);
+          const keywordsStr = (keywordsEl && keywordsEl.value) ? keywordsEl.value : '';
+          const keywords = keywordsStr.split(',').map((s) => s.trim()).filter(Boolean);
+          return {
+            id,
+            label: (labelEl && labelEl.value) ? labelEl.value : id,
+            enabled: enabledEl ? !!enabledEl.checked : true,
+            keywords,
+          };
+        });
+        const statusEl = document.getElementById('lanesStatus');
+        statusEl.textContent = 'Saving...';
+        try {
+          await fetchJson('/api/lanes', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lanes }),
+          });
+          statusEl.textContent = 'Saved.';
+          setTimeout(() => { statusEl.textContent = ''; }, 2000);
+        } catch (e) {
+          statusEl.textContent = e.message || 'Save failed';
+        }
+      });
+
+      document.getElementById('importRepo').addEventListener('click', async () => {
+        const input = document.getElementById('repoUrl');
+        const statusEl = document.getElementById('importStatus');
+        const url = (input?.value || '').trim();
+        if (!url) {
+          statusEl.textContent = 'Enter a GitHub repo URL.';
+          return;
+        }
+        statusEl.textContent = 'Cloning repository and preparing full-project analysis...';
+        try {
+          await fetchJson('/api/projects/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ repo_url: url }),
+          });
+          if (input) input.value = '';
+          statusEl.textContent = 'Repository imported.';
+          await fetchState();
+        } catch (e) {
+          statusEl.textContent = e.message || 'Import failed';
+        }
       });
 
       setInterval(() => {

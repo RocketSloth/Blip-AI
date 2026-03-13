@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 from app.agent import BucketOrganizerAgent, ProjectBuilderAgent, TrendResearchAgent
 from app.bucket import BucketStore, ProjectIdea
 from app.config import AgentSettings
+from app.lanes_config import get_lanes_config, save_lanes_config
 from app.project_store import ActiveProjectStore, idea_id_for_project, idea_id_from_parts
 
 logger = logging.getLogger(__name__)
@@ -42,8 +43,27 @@ class ProjectSelection(BaseModel):
     idea_id: str
 
 
+class RepoImport(BaseModel):
+    repo_url: str
+
+
+class InstructionsUpdate(BaseModel):
+    instructions: str = ""
+
+
 class ProjectAutoRunUpdate(BaseModel):
     auto_run: bool
+
+
+class LaneItem(BaseModel):
+    id: str
+    label: str = ""
+    enabled: bool = True
+    keywords: list[str] = Field(default_factory=list)
+
+
+class LanesUpdate(BaseModel):
+    lanes: list[LaneItem]
 
 
 class AgentRuntime:
@@ -126,7 +146,13 @@ class AgentRuntime:
 
     def run_project_once(self, project_id: str) -> dict[str, Any]:
         with self._lock:
-            result = self.project_agent.run_cycle(project_id, manual=True)
+            project = self.project_store.get_project(project_id)
+            if project is None:
+                raise ValueError("Project not found.")
+            if getattr(project, "source_type", "bucket") == "github":
+                result = self.project_agent.run_improvement(project_id)
+            else:
+                result = self.project_agent.run_cycle(project_id, manual=True)
             return self._set_last_result(result)
 
     def build_project_once(self, project_id: str) -> dict[str, Any]:
@@ -303,6 +329,21 @@ def organize_now() -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+@app.post("/api/projects/import")
+def import_project(payload: RepoImport) -> dict[str, Any]:
+    try:
+        project = runtime.project_store.create_project_from_github(payload.repo_url)
+        return {
+            "project": runtime.project_store.project_summary(project),
+            "message": "Repository cloned and project created.",
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("GitHub import failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 @app.post("/api/projects/select")
 def select_project(payload: ProjectSelection) -> dict[str, Any]:
     try:
@@ -322,6 +363,52 @@ def run_project(project_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Project run failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/api/projects/{project_id}/instructions")
+def get_instructions(project_id: str) -> dict[str, Any]:
+    try:
+        project = runtime.project_store.get_project(project_id)
+        if project is None:
+            raise ValueError("Project not found.")
+        return {"instructions": runtime.project_store.load_instructions(project)}
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/projects/{project_id}/instructions")
+def save_instructions(project_id: str, payload: InstructionsUpdate) -> dict[str, Any]:
+    try:
+        project = runtime.project_store.get_project(project_id)
+        if project is None:
+            raise ValueError("Project not found.")
+        runtime.project_store.save_instructions(project, payload.instructions)
+        return {"instructions": runtime.project_store.load_instructions(project)}
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.post("/api/projects/{project_id}/instructions/yolo")
+def yolo_instructions(project_id: str) -> dict[str, Any]:
+    try:
+        instructions = runtime.project_agent.generate_instructions_yolo(project_id)
+        return {"instructions": instructions}
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("YOLO instructions failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/projects/{project_id}/improve")
+def improve_project(project_id: str) -> dict[str, Any]:
+    try:
+        return runtime.project_agent.run_improvement(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Improvement run failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
@@ -356,6 +443,18 @@ def update_project_auto(project_id: str, payload: ProjectAutoRunUpdate) -> dict[
     except Exception as exc:
         logger.exception("Project auto-run update failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/api/lanes")
+def get_lanes() -> dict[str, Any]:
+    return {"lanes": get_lanes_config()}
+
+
+@app.put("/api/lanes")
+def put_lanes(payload: LanesUpdate) -> dict[str, Any]:
+    raw = [item.model_dump() for item in payload.lanes]
+    saved = save_lanes_config(raw)
+    return {"lanes": saved}
 
 
 @app.post("/api/heartbeat")

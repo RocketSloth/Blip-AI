@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import json
 from textwrap import dedent
 
+from app.lanes_config import get_lane_labels
 from app.project_store import ProductBrief, SupportedLane
 
 
@@ -15,14 +16,6 @@ class TemplateBundle:
     test_command: str
     required_paths: list[str]
     files: dict[str, str]
-
-
-LANE_LABELS: dict[SupportedLane, str] = {
-    "ops-copilot": "Internal Ops Copilot",
-    "intake-approval": "Intake And Approval Workflow",
-    "reporting-dashboard": "Reporting Dashboard",
-    "unsupported": "Unsupported",
-}
 
 
 def build_template_bundle(project_title: str, brief: ProductBrief) -> TemplateBundle:
@@ -39,6 +32,7 @@ def build_template_bundle(project_title: str, brief: ProductBrief) -> TemplateBu
             "README.md",
             "PROJECT_PLAN.md",
             "requirements.txt",
+            "run.bat",
             "app/__init__.py",
             "app/main.py",
             "app/project_config.json",
@@ -54,6 +48,7 @@ def build_template_bundle(project_title: str, brief: ProductBrief) -> TemplateBu
         "README.md": _readme(project_title, brief, bundle),
         "PROJECT_PLAN.md": _project_plan(brief),
         "requirements.txt": _requirements_txt(),
+        "run.bat": _run_bat(bundle),
         "app/__init__.py": "",
         "app/project_config.json": json.dumps(lane_config, indent=2),
         "app/main.py": _generic_app_main(),
@@ -70,7 +65,7 @@ def _lane_config(brief: ProductBrief) -> dict[str, object]:
     shared = {
         "project_title": brief.title,
         "lane": brief.lane,
-        "lane_label": LANE_LABELS[brief.lane],
+        "lane_label": get_lane_labels().get(brief.lane, brief.lane),
         "problem": brief.problem,
         "success_metric": brief.success_metric,
         "target_user": brief.target_user,
@@ -246,6 +241,31 @@ def _requirements_txt() -> str:
     )
 
 
+def _run_bat(bundle: TemplateBundle) -> str:
+    # Use python -m uvicorn so it works when uvicorn is not on PATH
+    run_cmd = (
+        "python -m uvicorn app.main:app --reload"
+        if "uvicorn" in bundle.run_command
+        else bundle.run_command
+    )
+    return dedent(
+        f"""
+        @echo off
+        echo Installing dependencies...
+        pip install -r requirements.txt
+        if errorlevel 1 (
+            echo Failed to install dependencies. Make sure Python and pip are installed.
+            pause
+            exit /b 1
+        )
+        echo.
+        echo Starting the app...
+        {run_cmd}
+        pause
+        """
+    ).strip()
+
+
 def _readme(project_title: str, brief: ProductBrief, bundle: TemplateBundle) -> str:
     criteria = "\n".join(f"- {item}" for item in brief.acceptance_criteria)
     return dedent(
@@ -255,7 +275,7 @@ def _readme(project_title: str, brief: ProductBrief, bundle: TemplateBundle) -> 
         {brief.opportunity_summary}
 
         ## Product Brief
-        - Lane: {LANE_LABELS[brief.lane]}
+        - Lane: {get_lane_labels().get(brief.lane, brief.lane)}
         - Target user: {brief.target_user}
         - ICP: {brief.icp}
         - Job to be done: {brief.job_to_be_done}
@@ -271,10 +291,23 @@ def _readme(project_title: str, brief: ProductBrief, bundle: TemplateBundle) -> 
         {criteria}
 
         ## Local Setup
-        1. Create and activate a virtual environment.
-        2. Install dependencies with `pip install -r requirements.txt`
-        3. Start the app with `{bundle.run_command}`
-        4. Run checks with `{bundle.test_command}`
+
+        ### Quick start (Windows)
+        Double-click **`run.bat`** in the project folder. It will install dependencies and start the app.  
+        Open http://localhost:8000 in your browser when it says the server is running.
+
+        ### Manual setup (all platforms)
+        If you prefer not to use the batch file, or you're on macOS/Linux:
+
+        1. **Create and activate a virtual environment** (recommended):
+           - Windows: `python -m venv .venv` then `.venv\\Scripts\\activate`
+           - macOS/Linux: `python3 -m venv .venv` then `source .venv/bin/activate`
+        2. **Install dependencies:** `pip install -r requirements.txt`
+        3. **Start the app:** `{bundle.run_command}`  
+           (If `uvicorn` is not on your PATH, use: `python -m uvicorn app.main:app --reload`)
+        4. **Run tests:** `{bundle.test_command}`
+
+        Then open http://localhost:8000 in your browser.
 
         ## Notes
         - Demo data is seeded automatically on startup.

@@ -208,7 +208,7 @@ def _required_paths_exist(workspace: Path, required_paths: Iterable[str]) -> boo
 def _readme_has_instructions(readme_path: Path, run_command: str, test_command: str) -> bool:
     if not readme_path.exists():
         return False
-    text = readme_path.read_text(encoding="utf-8")
+    text = readme_path.read_text(encoding="utf-8", errors="replace")
     normalized = text.lower()
     return "pip install -r requirements.txt" in normalized and run_command in text and test_command in text
 

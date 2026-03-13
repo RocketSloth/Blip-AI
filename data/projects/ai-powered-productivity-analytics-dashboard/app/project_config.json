@@ -1,0 +1,26 @@
+{
+  "project_title": "AI-powered productivity analytics dashboard",
+  "lane": "ops-copilot",
+  "lane_label": "Internal Ops Copilot",
+  "problem": "Current reporting methods are inefficient, leading to delays in decision-making and missed opportunities for improvement.",
+  "success_metric": "Reduction in time spent on reporting and an increase in actionable insights generated per week.",
+  "target_user": "Operations analysts or managers reviewing KPI trends",
+  "workflow": "Review KPI cards, inspect a team, then create a follow-up action or export the current view.",
+  "workflow_mode": "detail-update",
+  "list_heading": "Priority Queue",
+  "detail_heading": "Log follow-up",
+  "stats_mode": "queue",
+  "primary_label": "Task",
+  "secondary_label": "Owner",
+  "category_label": "Priority",
+  "note_label": "Latest note",
+  "action_label": "Action taken",
+  "primary_button": "Save follow-up",
+  "filter_enabled": false,
+  "export_enabled": false,
+  "stats_labels": [
+    "Open work",
+    "High priority",
+    "Owners active"
+  ]
+}

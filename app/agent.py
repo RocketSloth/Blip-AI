@@ -28,45 +28,10 @@ from app.project_store import (
     ValidationSummary,
     fingerprint_for_text,
 )
+from app.lanes_config import get_enabled_lanes, get_lane_keywords
 from app.project_validation import all_hard_gates_pass, docs_only_change, validate_workspace
 
 logger = logging.getLogger(__name__)
-
-SUPPORTED_LANES: tuple[SupportedLane, ...] = (
-    "ops-copilot",
-    "intake-approval",
-    "reporting-dashboard",
-)
-LANE_KEYWORDS: dict[SupportedLane, tuple[str, ...]] = {
-    "ops-copilot": (
-        "ops",
-        "operations",
-        "workflow",
-        "queue",
-        "inspection",
-        "task",
-        "assistant",
-        "copilot",
-    ),
-    "intake-approval": (
-        "intake",
-        "approval",
-        "request",
-        "submission",
-        "review",
-        "onboarding",
-        "verification",
-    ),
-    "reporting-dashboard": (
-        "dashboard",
-        "analytics",
-        "metrics",
-        "reporting",
-        "productivity",
-        "score",
-        "kpi",
-    ),
-}
 
 
 class LLMRequestError(RuntimeError):
@@ -98,6 +63,66 @@ class CandidateResult:
     summary: str
     validation: ValidationSummary
     score: RefScore
+
+
+@dataclass
+class RepoChunk:
+    index: int
+    text: str
+    file_paths: list[str]
+
+
+EXCLUDED_REPO_DIRS = {
+    ".git",
+    "node_modules",
+    ".venv",
+    "venv",
+    "__pycache__",
+    ".pytest_cache",
+    "dist",
+    "build",
+    "coverage",
+    ".next",
+    ".turbo",
+    ".idea",
+    ".vscode",
+}
+EXCLUDED_REPO_FILES = {
+    "records.json",
+    "VALIDATION.json",
+    "active_projects.json",
+}
+TEXT_FILE_EXTENSIONS = {
+    ".py",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".json",
+    ".md",
+    ".txt",
+    ".html",
+    ".css",
+    ".scss",
+    ".yml",
+    ".yaml",
+    ".toml",
+    ".ini",
+    ".cfg",
+    ".sh",
+    ".bat",
+    ".ps1",
+    ".sql",
+    ".xml",
+    ".env",
+    ".gitignore",
+    ".dockerignore",
+}
+MAX_REPO_FILE_BYTES = 200_000
+MAX_REPO_FILE_CHARS = 8_000
+MAX_REPO_TOTAL_CHARS = 120_000
+MAX_REPO_CHUNK_CHARS = 18_000
+MAX_REPO_EDIT_FILES = 40
 
 
 def _now_iso() -> str:
@@ -146,6 +171,29 @@ def _run_json_completion(
             )
             text = response.choices[0].message.content or ""
             return _parse_json_object(text)
+        except (APITimeoutError, APIConnectionError) as exc:
+            if attempt >= settings.openai_request_retries:
+                raise LLMRequestError(f"{label} could not reach OpenAI in time.") from exc
+            time.sleep(min(2**attempt, 4))
+
+
+def _run_text_completion(
+    *,
+    client: OpenAI,
+    settings: AgentSettings,
+    prompt: str,
+    temperature: float,
+    label: str,
+) -> str:
+    for attempt in range(settings.openai_request_retries + 1):
+        try:
+            response = client.chat.completions.create(
+                model=settings.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=temperature,
+                timeout=settings.openai_timeout_seconds,
+            )
+            return (response.choices[0].message.content or "").strip()
         except (APITimeoutError, APIConnectionError) as exc:
             if attempt >= settings.openai_request_retries:
                 raise LLMRequestError(f"{label} could not reach OpenAI in time.") from exc
@@ -312,9 +360,17 @@ class ProjectQualifierAgent:
         self.client = _build_client(settings)
 
     def qualify(self, idea: ProjectIdea) -> QualificationDecision:
+        enabled = get_enabled_lanes()
+        if not enabled:
+            return QualificationDecision(
+                supported=False,
+                lane="unsupported",
+                reason="No project types are enabled. Enable at least one lane in Project types.",
+            )
+        lanes_list = ", ".join(enabled)
         prompt = (
             "You are a product qualifier for an autonomous MVP factory.\n"
-            "Only support these lanes: ops-copilot, intake-approval, reporting-dashboard.\n"
+            f"Only support these lanes: {lanes_list}.\n"
             "Reject consumer coaching, generic apps, or anything without a clear workflow.\n"
             "Return strict JSON with: "
             '{"supported":true,"lane":"ops-copilot","target_user":"...","job_to_be_done":"...",'
@@ -330,7 +386,7 @@ class ProjectQualifierAgent:
                 label="Qualification",
             )
             decision = QualificationDecision.model_validate(data)
-            if decision.supported and decision.lane != "unsupported":
+            if decision.supported and decision.lane != "unsupported" and decision.lane in enabled:
                 return decision
         except Exception:
             pass
@@ -340,7 +396,8 @@ class ProjectQualifierAgent:
         text = f"{idea.title} {idea.description}".lower()
         lane: SupportedLane = "unsupported"
         best_hits = 0
-        for candidate, keywords in LANE_KEYWORDS.items():
+        keywords_map = get_lane_keywords()
+        for candidate, keywords in keywords_map.items():
             hits = sum(1 for keyword in keywords if keyword in text)
             if hits > best_hits:
                 lane = candidate
@@ -749,7 +806,10 @@ class ProjectBuilderAgent:
             if not project.auto_run:
                 continue
             try:
-                results.append(self.run_cycle(project.id, manual=False))
+                if getattr(project, "source_type", "bucket") == "github":
+                    results.append(self.run_improvement(project.id))
+                else:
+                    results.append(self.run_cycle(project.id, manual=False))
             except LLMRequestError as exc:
                 logger.warning("Automatic project run deferred for %s: %s", project.id, exc)
                 results.append({"project_id": project.id, "title": project.title, "decision": "deferred", "error": str(exc), "run_at": run_at})
@@ -786,6 +846,203 @@ class ProjectBuilderAgent:
             self.projects.save_project(project)
         self.projects.ensure_project_files(project)
         return project
+
+    def generate_instructions_yolo(self, project_id: str) -> str:
+        """Have the LLM analyze the repo and return improvement instructions; save to instructions.txt."""
+        project = self.projects.get_project(project_id)
+        if project is None:
+            raise ValueError("Project not found.")
+        workspace = self.projects.workspace_path(project)
+        if not workspace.exists():
+            raise ValueError("Project workspace not found.")
+        chunks, included, skipped = build_repo_chunks(workspace)
+        if not chunks:
+            raise ValueError("No text files were eligible for full-project analysis.")
+        chunk_notes: list[str] = []
+        for chunk in chunks:
+            prompt = (
+                "You are reviewing one chunk of a software project.\n"
+                "Summarize the most important improvement opportunities from this chunk only.\n"
+                'Return strict JSON: {"summary":"...","candidate_files":["path"],"notes":["..."]}\n\n'
+                f"Chunk {chunk.index} of {len(chunks)}\n{chunk.text}"
+            )
+            data = _run_json_completion(
+                client=self.ref.client,
+                settings=self.settings,
+                prompt=prompt,
+                temperature=0.2,
+                label=f"YOLO chunk {chunk.index}",
+            )
+            summary = str(data.get("summary", "")).strip()
+            notes = data.get("notes", [])
+            if not isinstance(notes, list):
+                notes = []
+            block = [f"Chunk {chunk.index} summary: {summary}"] if summary else [f"Chunk {chunk.index} summary:"]
+            block.extend(f"- {str(note).strip()}" for note in notes if str(note).strip())
+            chunk_notes.append("\n".join(block).strip())
+        prompt = (
+            "You are analyzing a complete software project from chunked repo context.\n"
+            "Write concise, actionable instructions for an autonomous coding agent to improve the project.\n"
+            "Focus on the most valuable changes first. Cover code quality, tests, docs, reliability, and developer experience where relevant.\n"
+            "Output only the instructions, no preamble or title.\n\n"
+            f"Included text files: {len(included)}\n"
+            f"Skipped files: {len(skipped)}\n\n"
+            + "\n\n".join(chunk_notes)
+        )
+        try:
+            text = _run_text_completion(
+                client=self.ref.client,
+                settings=self.settings,
+                prompt=prompt,
+                temperature=0.3,
+                label="YOLO instructions",
+            )
+            self.projects.save_instructions(project, text)
+            return text
+        except Exception as exc:
+            raise LLMRequestError(f"YOLO instructions generation failed: {exc}") from exc
+
+    def run_improvement(self, project_id: str) -> dict[str, Any]:
+        """Run instruction-based improvement on a GitHub-imported project (no scaffold)."""
+        project = self.projects.get_project(project_id)
+        if project is None:
+            raise ValueError("Project not found.")
+        if getattr(project, "source_type", "bucket") != "github":
+            raise ValueError("Improvement pipeline is only for GitHub-imported projects.")
+        instructions = self.projects.load_instructions(project)
+        if not instructions.strip():
+            return {
+                "project": self.projects.project_summary(project),
+                "changed_files": [],
+                "message": "No instructions set. Add instructions or use YOLO to generate them.",
+                "run_at": _now_iso(),
+            }
+        workspace = self.projects.workspace_path(project).resolve()
+        if not workspace.exists():
+            raise ValueError("Project workspace not found.")
+        chunks, included, skipped = build_repo_chunks(workspace)
+        if not chunks:
+            raise ValueError("No text files were eligible for improvement.")
+        chunk_analyses: list[dict[str, Any]] = []
+        candidate_paths: list[str] = []
+        for chunk in chunks:
+            prompt = (
+                "You are reviewing one chunk of a software project for automated improvement.\n"
+                "Consider the user instructions and the provided repo chunk.\n"
+                'Return strict JSON: {"summary":"...","candidate_files":["path"],"proposed_changes":["..."]}\n\n'
+                f"Instructions:\n{instructions}\n\n"
+                f"Chunk {chunk.index} of {len(chunks)}\n{chunk.text}"
+            )
+            analysis = _run_json_completion(
+                client=self.ref.client,
+                settings=self.settings,
+                prompt=prompt,
+                temperature=0.2,
+                label=f"Improvement chunk {chunk.index}",
+            )
+            chunk_analyses.append(analysis)
+            raw_candidates = analysis.get("candidate_files", [])
+            if isinstance(raw_candidates, list):
+                for raw in raw_candidates:
+                    path = str(raw).strip().replace("\\", "/")
+                    if path and path not in candidate_paths:
+                        candidate_paths.append(path)
+        if not candidate_paths:
+            candidate_paths = included[: min(12, len(included))]
+        candidate_paths = candidate_paths[:MAX_REPO_EDIT_FILES]
+        candidate_context_parts: list[str] = []
+        for relative in candidate_paths:
+            target = workspace / relative
+            if not target.exists() or not target.is_file() or not is_llm_text_file(target, workspace):
+                continue
+            candidate_context_parts.append(f"=== {relative} ===\n{_read_text_safe(target)[:MAX_REPO_FILE_CHARS]}")
+        candidate_context = "\n\n".join(candidate_context_parts)
+        synthesis_prompt = (
+            "You are improving a complete software project using chunked full-repo analysis.\n"
+            "Use the instructions, chunk analyses, and current content of candidate files to produce one consolidated edit plan.\n"
+            'Return strict JSON: {"summary":"...","edits":[{"path":"relative/path","content":"full new file content"}]}\n'
+            "Only include files you are changing. Paths must be relative to the project root. Do not use absolute paths or '..'.\n\n"
+            f"Instructions:\n{instructions}\n\n"
+            f"Repo included text files: {len(included)}\n"
+            f"Repo skipped files: {len(skipped)}\n"
+            f"Chunk analyses:\n{json.dumps(chunk_analyses, indent=2)}\n\n"
+            f"Candidate files:\n{candidate_context}"
+        )
+        try:
+            data = _run_json_completion(
+                client=self.ref.client,
+                settings=self.settings,
+                prompt=synthesis_prompt,
+                temperature=0.2,
+                label="Improvement synthesis",
+            )
+        except Exception as exc:
+            raise LLMRequestError(f"Improvement step failed: {exc}") from exc
+        edits = data.get("edits") or []
+        if not isinstance(edits, list):
+            edits = []
+        changed: list[str] = []
+        skipped_edit_paths = 0
+        for item in edits:
+            if not isinstance(item, dict):
+                continue
+            rel = (item.get("path") or "").strip().replace("\\", "/")
+            if (
+                ".." in rel
+                or rel.startswith("/")
+                or not rel
+                or any(part in EXCLUDED_REPO_DIRS for part in Path(rel).parts)
+            ):
+                skipped_edit_paths += 1
+                continue
+            content = item.get("content")
+            if content is None:
+                continue
+            target = (workspace / rel).resolve()
+            try:
+                target.relative_to(workspace)
+            except ValueError:
+                skipped_edit_paths += 1
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content if isinstance(content, str) else str(content), encoding="utf-8")
+            changed.append(rel)
+        llm_summary = str(data.get("summary", "")).strip()
+        project.last_cycle_at = _now_iso()
+        if llm_summary:
+            project.last_accepted_summary = llm_summary
+        self.projects.save_project(project)
+        self.projects.append_attempt(
+            project,
+            ProjectAttempt(
+                attempt_key=fingerprint_for_text("github-improve", instructions, ",".join(changed), llm_summary),
+                stage_name="improvement",
+                builder_name="Full Repo LLM",
+                summary=llm_summary or "Full-project LLM improvement run.",
+                changed_files=changed,
+                baseline_score=project.current_score,
+                candidate_score=project.current_score,
+                decision="accepted" if changed else "no_change",
+                reason=llm_summary or "No edits returned or applied.",
+                validation_status=project.validation_status,
+                timestamp=project.last_cycle_at,
+                instructions_used=instructions,
+                files_considered=len(included),
+                chunk_count=len(chunks),
+                skipped_files=len(skipped) + skipped_edit_paths,
+                llm_summary=llm_summary or None,
+            ),
+        )
+        return {
+            "project": self.projects.project_summary(self.projects.get_project(project_id) or project),
+            "changed_files": changed,
+            "message": f"Applied improvements to {len(changed)} file(s)." if changed else "No edits returned or applied.",
+            "summary": llm_summary,
+            "files_considered": len(included),
+            "chunk_count": len(chunks),
+            "skipped_files": len(skipped) + skipped_edit_paths,
+            "run_at": project.last_cycle_at,
+        }
 
     def _should_accept_candidate(
         self,
@@ -931,7 +1188,7 @@ def _write_full_bundle(workspace: Path, bundle: TemplateBundle) -> list[str]:
     for relative_path, content in bundle.files.items():
         destination = workspace / relative_path
         destination.parent.mkdir(parents=True, exist_ok=True)
-        current = destination.read_text(encoding="utf-8") if destination.exists() else None
+        current = _read_text_safe(destination) if destination.exists() else None
         if current != content:
             destination.write_text(content, encoding="utf-8")
             changed_files.append(relative_path)
@@ -946,11 +1203,104 @@ def _write_bundle_subset(workspace: Path, bundle: TemplateBundle, paths: list[st
             continue
         destination = workspace / relative_path
         destination.parent.mkdir(parents=True, exist_ok=True)
-        current = destination.read_text(encoding="utf-8") if destination.exists() else None
+        current = _read_text_safe(destination) if destination.exists() else None
         if current != content:
             destination.write_text(content, encoding="utf-8")
             changed_files.append(relative_path)
     return changed_files
+
+
+def _read_text_safe(path: Path) -> str:
+    """Read path as text; use UTF-8 with replacement for invalid bytes so binary/non-UTF-8 files don't crash."""
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
+def is_llm_text_file(path: Path, workspace: Path | None = None) -> bool:
+    if not path.is_file():
+        return False
+    if path.name in EXCLUDED_REPO_FILES:
+        return False
+    if any(part in EXCLUDED_REPO_DIRS for part in path.parts):
+        return False
+    if workspace is not None:
+        try:
+            relative = path.relative_to(workspace)
+        except ValueError:
+            return False
+        if any(part in EXCLUDED_REPO_DIRS for part in relative.parts):
+            return False
+        if relative.name in EXCLUDED_REPO_FILES:
+            return False
+    try:
+        if path.stat().st_size > MAX_REPO_FILE_BYTES:
+            return False
+    except OSError:
+        return False
+    suffix = path.suffix.lower()
+    if suffix in TEXT_FILE_EXTENSIONS:
+        return True
+    if "." not in path.name and path.name in {"Dockerfile", "Makefile"}:
+        return True
+    if path.name.lower().startswith("readme"):
+        return True
+    return False
+
+
+def build_repo_manifest(workspace: Path) -> tuple[str, list[str], list[str]]:
+    included: list[str] = []
+    skipped: list[str] = []
+    for path in sorted(workspace.rglob("*")):
+        if not path.is_file():
+            continue
+        relative = path.relative_to(workspace).as_posix()
+        if is_llm_text_file(path, workspace):
+            included.append(relative)
+        else:
+            skipped.append(relative)
+    lines = ["Repo manifest:", *included]
+    if skipped:
+        lines.append("")
+        lines.append(f"Skipped files: {len(skipped)}")
+    return "\n".join(lines), included, skipped
+
+
+def build_repo_chunks(
+    workspace: Path,
+    *,
+    max_chars_per_chunk: int = MAX_REPO_CHUNK_CHARS,
+    max_chars_per_file: int = MAX_REPO_FILE_CHARS,
+    max_total_chars: int = MAX_REPO_TOTAL_CHARS,
+) -> tuple[list[RepoChunk], list[str], list[str]]:
+    manifest, included, skipped = build_repo_manifest(workspace)
+    chunks: list[RepoChunk] = []
+    current_lines = [manifest, ""]
+    current_files: list[str] = []
+    current_chars = len(manifest) + 1
+    total_chars = 0
+
+    for relative in included:
+        path = workspace / relative
+        content = _read_text_safe(path)
+        if len(content) > max_chars_per_file:
+            content = content[:max_chars_per_file].rstrip() + "\n...<truncated>"
+        entry = f"=== {relative} ===\n{content}\n"
+        entry_len = len(entry)
+        if total_chars + entry_len > max_total_chars:
+            skipped.append(relative)
+            continue
+        if current_files and current_chars + entry_len > max_chars_per_chunk:
+            chunks.append(RepoChunk(index=len(chunks) + 1, text="\n".join(current_lines).strip(), file_paths=current_files))
+            current_lines = [manifest, ""]
+            current_files = []
+            current_chars = len(manifest) + 1
+        current_lines.append(entry)
+        current_files.append(relative)
+        current_chars += entry_len
+        total_chars += entry_len
+
+    if current_files:
+        chunks.append(RepoChunk(index=len(chunks) + 1, text="\n".join(current_lines).strip(), file_paths=current_files))
+    return chunks, included, skipped
 
 
 def _workspace_file_map(workspace: Path) -> dict[str, str]:
@@ -961,5 +1311,5 @@ def _workspace_file_map(workspace: Path) -> dict[str, str]:
         relative_path = path.relative_to(workspace).as_posix()
         if relative_path == "records.json":
             continue
-        files[relative_path] = path.read_text(encoding="utf-8")
+        files[relative_path] = _read_text_safe(path)
     return files

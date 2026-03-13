@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from hashlib import sha1
-from io import BytesIO
+from datetime import datetime, timezone
 import json
-from pathlib import Path
 import re
 import shutil
+import subprocess
+from hashlib import sha1
+from io import BytesIO
+from pathlib import Path
 from typing import Any, Iterable, Literal
+
+SourceType = Literal["bucket", "github"]
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from pydantic import BaseModel, Field
@@ -121,6 +125,11 @@ class ProjectAttempt(BaseModel):
     failed_checks: list[str] = Field(default_factory=list)
     next_task: str | None = None
     timestamp: str
+    instructions_used: str | None = None
+    files_considered: int = 0
+    chunk_count: int = 0
+    skipped_files: int = 0
+    llm_summary: str | None = None
 
 
 class ActiveProject(BaseModel):
@@ -150,6 +159,13 @@ class ActiveProject(BaseModel):
     usable_mvp_at: str | None = None
     stalled_reason: str | None = None
     validation_artifacts: dict[str, str] = Field(default_factory=dict)
+    source_type: SourceType = "bucket"
+    source_repo_url: str | None = None
+
+
+def _project_root() -> Path:
+    """Project root (directory containing app/). Resolves paths regardless of cwd."""
+    return Path(__file__).resolve().parent.parent
 
 
 class ActiveProjectStore:
@@ -158,8 +174,9 @@ class ActiveProjectStore:
         manifest_path: str = "data/active_projects.json",
         projects_root: str = "data/projects",
     ) -> None:
-        self.manifest_path = Path(manifest_path)
-        self.projects_root = Path(projects_root)
+        root = _project_root()
+        self.manifest_path = root / manifest_path
+        self.projects_root = root / projects_root
         self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
         self.projects_root.mkdir(parents=True, exist_ok=True)
         if not self.manifest_path.exists():
@@ -259,6 +276,82 @@ class ActiveProjectStore:
         self.save_project(project)
         return project
 
+    def create_project_from_github(self, repo_url: str) -> ActiveProject:
+        """Clone a GitHub repo and create an ActiveProject (source_type=github)."""
+        normalized = (repo_url or "").strip().rstrip("/")
+        if not re.match(r"^https://github\.com/[^/]+/[^/]+(\.git)?$", normalized):
+            raise ValueError("Only https://github.com/owner/repo URLs are allowed.")
+        parts = normalized.replace(".git", "").rstrip("/").split("/")
+        owner, repo = parts[-2], parts[-1]
+        slug_base = _slugify(repo)
+        existing_slugs = {p.slug for p in self._load_manifest()}
+        slug = slug_base
+        suffix = 2
+        while slug in existing_slugs:
+            slug = f"{slug_base}-{suffix}"
+            suffix += 1
+        project_id = sha1(normalized.encode("utf-8")).hexdigest()[:16]
+        workspace = self.projects_root / slug
+        if workspace.exists():
+            raise ValueError(f"Workspace already exists: {slug}")
+        try:
+            subprocess.run(
+                ["git", "clone", "--depth", "1", normalized, str(workspace)],
+                check=True,
+                capture_output=True,
+                timeout=120,
+                cwd=str(self.projects_root),
+            )
+        except subprocess.CalledProcessError as e:
+            raise ValueError(f"Git clone failed: {e.stderr.decode('utf-8', errors='replace') or 'unknown error'}") from e
+        except FileNotFoundError:
+            raise ValueError("Git is not installed or not on PATH.") from None
+
+        source_description = ""
+        readme_candidates = [workspace / "README.md", workspace / "Readme.md", workspace / "README.MD"]
+        for readme in readme_candidates:
+            if readme.exists():
+                try:
+                    source_description = readme.read_text(encoding="utf-8", errors="replace").strip()[:2000]
+                    if "\n\n" in source_description:
+                        source_description = source_description.split("\n\n")[0].strip()
+                except Exception:
+                    pass
+                break
+
+        run_cmd = "uvicorn app.main:app --reload"
+        test_cmd = "pytest -q"
+        if (workspace / "package.json").exists():
+            try:
+                pkg = json.loads((workspace / "package.json").read_text(encoding="utf-8"))
+                scripts = pkg.get("scripts") or {}
+                run_cmd = scripts.get("start") or run_cmd
+                test_cmd = scripts.get("test") or test_cmd
+            except Exception:
+                pass
+        elif (workspace / "requirements.txt").exists():
+            run_cmd = "python -m uvicorn app.main:app --reload"
+            test_cmd = "pytest -q"
+
+        now = datetime.now(timezone.utc).isoformat()
+        project = ActiveProject(
+            id=project_id,
+            title=repo,
+            source_title=repo,
+            source_description=source_description or f"Imported from {normalized}",
+            source_created_at=now,
+            slug=slug,
+            target_score=95,
+            auto_run=False,
+            run_command=run_cmd,
+            test_command=test_cmd,
+            source_type="github",
+            source_repo_url=normalized,
+        )
+        self.ensure_project_files(project)
+        self.save_project(project)
+        return project
+
     def workspace_path(self, project: ActiveProject) -> Path:
         return self.projects_root / project.slug
 
@@ -273,6 +366,23 @@ class ActiveProjectStore:
 
     def artifacts_dir(self, project: ActiveProject) -> Path:
         return self.workspace_path(project) / "artifacts"
+
+    def instructions_path(self, project: ActiveProject) -> Path:
+        return self.workspace_path(project) / "instructions.txt"
+
+    def load_instructions(self, project: ActiveProject) -> str:
+        path = self.instructions_path(project)
+        if not path.exists():
+            return ""
+        try:
+            return path.read_text(encoding="utf-8", errors="replace").strip()
+        except Exception:
+            return ""
+
+    def save_instructions(self, project: ActiveProject, text: str) -> None:
+        path = self.instructions_path(project)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text((text or "").strip(), encoding="utf-8")
 
     def ensure_project_files(self, project: ActiveProject) -> None:
         workspace = self.workspace_path(project)
@@ -329,8 +439,15 @@ class ActiveProjectStore:
         return path.relative_to(self.workspace_path(project)).as_posix()
 
     def artifact_path(self, project: ActiveProject, relative_name: str) -> Path:
-        base = self.workspace_path(project).resolve()
-        candidate = (base / relative_name).resolve()
+        # Normalize: stored paths are often "artifacts/foo.log"; URL can duplicate "artifacts/".
+        # Resolve under artifacts dir so "artifacts/import-check.log" and "import-check.log" both work.
+        name = relative_name.strip()
+        if name.startswith("artifacts/"):
+            name = name[len("artifacts/") :].lstrip("/")
+        if ".." in name or name.startswith("/"):
+            raise ValueError("Invalid artifact path.")
+        base = self.artifacts_dir(project).resolve()
+        candidate = (base / name).resolve()
         try:
             candidate.relative_to(base)
         except ValueError as exc:
@@ -490,6 +607,7 @@ class ActiveProjectStore:
     def project_summary(self, project: ActiveProject, attempt_limit: int = 5) -> dict[str, object]:
         project = self._normalize_project(project)
         validation = self.load_validation_summary(project)
+        attempts = self.recent_attempts(project, attempt_limit)
         return {
             "id": project.id,
             "title": project.title,
@@ -518,5 +636,9 @@ class ActiveProjectStore:
             "validation_summary": validation.model_dump(),
             "validation_artifacts": project.validation_artifacts,
             "workspace_path": self.workspace_path(project).as_posix(),
-            "recent_attempts": [attempt.model_dump() for attempt in self.recent_attempts(project, attempt_limit)],
+            "recent_attempts": [attempt.model_dump() for attempt in attempts],
+            "latest_attempt": attempts[0].model_dump() if attempts else None,
+            "source_type": project.source_type,
+            "source_repo_url": project.source_repo_url,
+            "instructions": self.load_instructions(project) if project.source_type == "github" else "",
         }

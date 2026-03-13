@@ -8,18 +8,22 @@ from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
 
+from app import agent as agent_module
 from app import main as main_module
 from app.agent import (
     ProjectBuilderAgent,
     ProjectQualifierAgent,
     QualificationDecision,
     RefScore,
+    build_repo_chunks,
+    is_llm_text_file,
 )
 from app.bucket import BucketStore, ProjectIdea
 from app.config import AgentSettings
 from app.main import AgentRuntime
 from app.project_store import (
     ActiveProjectStore,
+    ActiveProject,
     HardGateResult,
     ProductBrief,
     ProjectAttempt,
@@ -334,6 +338,143 @@ class ProjectBuilderAgentTests(unittest.TestCase):
             assert project is not None
             attempts = store.load_attempts(project)
             self.assertEqual(attempts[-1].decision, "skipped_duplicate")
+
+    def test_repo_chunking_excludes_generated_and_binary_files(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir)
+            (workspace / "src").mkdir()
+            (workspace / "node_modules").mkdir()
+            (workspace / ".git").mkdir()
+            (workspace / "src" / "main.py").write_text("print('hello')\n", encoding="utf-8")
+            (workspace / "README.md").write_text("# Sample\n", encoding="utf-8")
+            (workspace / "node_modules" / "ignore.js").write_text("console.log('x')", encoding="utf-8")
+            (workspace / ".git" / "config").write_text("[core]\n", encoding="utf-8")
+            (workspace / "image.png").write_bytes(b"\x89PNG\r\n\x1a\n")
+
+            chunks, included, skipped = build_repo_chunks(workspace, max_chars_per_chunk=200, max_chars_per_file=100, max_total_chars=500)
+
+            self.assertTrue(chunks)
+            self.assertIn("src/main.py", included)
+            self.assertIn("README.md", included)
+            self.assertIn("node_modules/ignore.js", skipped)
+            self.assertIn("image.png", skipped)
+            self.assertFalse(is_llm_text_file(workspace / "image.png", workspace))
+
+    def test_generate_instructions_yolo_uses_full_repo_chunks(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            agent, store = self._make_agent(base)
+            project = ActiveProject(
+                id="github-yolo",
+                title="sample-repo",
+                source_title="sample-repo",
+                source_description="Imported repo",
+                source_created_at="2026-03-12T00:00:00+00:00",
+                slug="sample-repo",
+                source_type="github",
+                source_repo_url="https://github.com/test/sample-repo",
+            )
+            store.save_project(project)
+            workspace = store.workspace_path(project)
+            (workspace / "src").mkdir(parents=True, exist_ok=True)
+            for idx in range(8):
+                (workspace / "src" / f"module_{idx}.py").write_text(
+                    f"# module {idx}\n" + ("value = 'x'\n" * 900),
+                    encoding="utf-8",
+                )
+
+            original_json = agent_module._run_json_completion
+            original_text = agent_module._run_text_completion
+            calls: list[str] = []
+            try:
+                def fake_json_completion(**kwargs):
+                    prompt = kwargs["prompt"]
+                    calls.append(prompt)
+                    return {"summary": "Chunk review", "candidate_files": ["src/module_0.py"], "notes": ["Improve tests"]}
+
+                def fake_text_completion(**kwargs):
+                    self.assertIn("Chunk 1 summary", kwargs["prompt"])
+                    return "- Improve tests\n- Improve docs"
+
+                agent_module._run_json_completion = fake_json_completion
+                agent_module._run_text_completion = fake_text_completion
+
+                instructions = agent.generate_instructions_yolo(project.id)
+                self.assertIn("Improve tests", instructions)
+                self.assertGreaterEqual(len(calls), 2)
+                self.assertEqual(store.load_instructions(project), instructions)
+            finally:
+                agent_module._run_json_completion = original_json
+                agent_module._run_text_completion = original_text
+
+    def test_run_improvement_auto_applies_safe_full_repo_edits(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            agent, store = self._make_agent(base)
+            project = ActiveProject(
+                id="github-improve",
+                title="sample-repo",
+                source_title="sample-repo",
+                source_description="Imported repo",
+                source_created_at="2026-03-12T00:00:00+00:00",
+                slug="sample-repo",
+                source_type="github",
+                source_repo_url="https://github.com/test/sample-repo",
+            )
+            store.save_project(project)
+            workspace = store.workspace_path(project)
+            (workspace / "src").mkdir(parents=True, exist_ok=True)
+            (workspace / "README.md").write_text("# Repo\n", encoding="utf-8")
+            (workspace / "src" / "app.py").write_text("print('before')\n", encoding="utf-8")
+            for idx in range(6):
+                (workspace / "src" / f"extra_{idx}.py").write_text(
+                    f"# extra {idx}\n" + ("value = 1\n" * 700),
+                    encoding="utf-8",
+                )
+            store.save_instructions(project, "Improve the project and add better docs.")
+
+            original_json = agent_module._run_json_completion
+            chunk_calls = {"count": 0}
+            try:
+                def fake_json_completion(**kwargs):
+                    prompt = kwargs["prompt"]
+                    if '"edits":[{"path":"relative/path","content":"full new file content"}]' in prompt:
+                        return {
+                            "summary": "Applied repo-wide cleanup.",
+                            "edits": [
+                                {"path": "README.md", "content": "# Repo\n\nImproved documentation.\n"},
+                                {"path": "src/app.py", "content": "print('after')\n"},
+                                {"path": "../escape.txt", "content": "bad"},
+                            ],
+                        }
+                    chunk_calls["count"] += 1
+                    if chunk_calls["count"] == 1:
+                        return {
+                            "summary": "Chunk 1",
+                            "candidate_files": ["README.md", "src/app.py"],
+                            "proposed_changes": ["Improve docs", "Refactor app"],
+                        }
+                    return {
+                        "summary": "Chunk review",
+                        "candidate_files": ["src/app.py"],
+                        "proposed_changes": ["Tighten implementation"],
+                    }
+
+                agent_module._run_json_completion = fake_json_completion
+
+                result = agent.run_improvement(project.id)
+                self.assertIn("README.md", result["changed_files"])
+                self.assertIn("src/app.py", result["changed_files"])
+                self.assertEqual((workspace / "src" / "app.py").read_text(encoding="utf-8"), "print('after')\n")
+                self.assertFalse((base / "escape.txt").exists())
+                self.assertGreaterEqual(result["chunk_count"], 2)
+                self.assertGreater(result["files_considered"], 0)
+                latest = store.project_summary(project)["latest_attempt"]
+                self.assertEqual(latest["builder_name"], "Full Repo LLM")
+                self.assertGreaterEqual(latest["chunk_count"], 2)
+                self.assertGreaterEqual(latest["skipped_files"], 1)
+            finally:
+                agent_module._run_json_completion = original_json
 
 
 class ApiSmokeTests(unittest.TestCase):
