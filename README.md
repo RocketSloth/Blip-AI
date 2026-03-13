@@ -70,6 +70,12 @@ Automatic actions:
 - each cycle uses the staged build pipeline and deterministic validation
 - projects stop auto-running once they hit the target score of `95`
 
+GitHub import actions:
+
+- `POST /api/projects/import` clones the repository and immediately generates a persisted `REPO_DIGEST.json`
+- imported projects keep manual instructions in `instructions.txt` and the AI execution brief in `REPO_DIGEST.json`
+- the YOLO action now regenerates the AI repo diagnosis and a productive repo-specific improvement plan
+
 ## Validation Model
 
 Before REF can score a project, Blip checks:
@@ -86,6 +92,11 @@ Validation output is persisted per project in:
 - `VALIDATION.json`
 - `records.json`
 - `artifacts/`
+
+Imported GitHub repos also persist:
+
+- `REPO_DIGEST.json`
+- `instructions.txt`
 
 ## Project Layout
 
@@ -138,9 +149,12 @@ Open `http://localhost:8000`.
 - inspect lane, stage, product brief summary, run/test contract, and demo scenario
 - run `build`, `validate`, or full pipeline actions on demand
 - review hard-gate pass/fail results and next best task
+- inspect AI repo summaries, priority tasks, and the saved execution brief for imported repos
+- keep manual user instructions separate from the AI-generated YOLO plan
 - download the current generated repo at any time
 - open validation logs from the `artifacts/` folder
 - toggle heartbeat auto-run per project
+- delete bucket ideas or active projects from the UI
 
 ## API
 
@@ -151,10 +165,16 @@ Open `http://localhost:8000`.
 - `POST /api/run`
 - `POST /api/organize`
 - `POST /api/projects/select`
+- `POST /api/projects/import`
+- `POST /api/projects/{id}/instructions`
+- `POST /api/projects/{id}/instructions/yolo`
 - `POST /api/projects/{id}/build`
 - `POST /api/projects/{id}/validate`
 - `POST /api/projects/{id}/run`
+- `POST /api/projects/{id}/improve`
 - `POST /api/projects/{id}/auto`
+- `DELETE /api/projects/{id}`
+- `DELETE /api/ideas/{idea_id}`
 - `POST /api/heartbeat`
 
 ## Notes

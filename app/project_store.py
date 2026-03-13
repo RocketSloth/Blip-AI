@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import os
 import re
 import shutil
+import stat
 import subprocess
+import time
 from hashlib import sha1
 from io import BytesIO
 from pathlib import Path
@@ -33,6 +36,7 @@ ProjectStage = Literal[
     "completed",
 ]
 ValidationStatus = Literal["unknown", "passed", "failed", "deferred"]
+RepoDigestStatus = Literal["unknown", "ready", "failed", "deferred"]
 SeedStatus = Literal["unknown", "loaded", "missing"]
 
 
@@ -105,6 +109,28 @@ class ValidationSummary(BaseModel):
     artifact_paths: dict[str, str] = Field(default_factory=dict)
 
 
+class RepoPriorityTask(BaseModel):
+    title: str
+    rationale: str = ""
+    target_files: list[str] = Field(default_factory=list)
+    acceptance_checks: list[str] = Field(default_factory=list)
+
+
+class RepoDigest(BaseModel):
+    status: RepoDigestStatus = "unknown"
+    analyzed_at: str | None = None
+    repo_head: str = ""
+    files_considered: int = 0
+    chunk_count: int = 0
+    skipped_files: int = 0
+    summary: str = ""
+    architecture: str = ""
+    strengths: list[str] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    priority_tasks: list[RepoPriorityTask] = Field(default_factory=list)
+    agent_plan_markdown: str = ""
+
+
 class ProjectFileOperation(BaseModel):
     path: str
     action: Literal["create", "update", "delete"]
@@ -161,6 +187,12 @@ class ActiveProject(BaseModel):
     validation_artifacts: dict[str, str] = Field(default_factory=dict)
     source_type: SourceType = "bucket"
     source_repo_url: str | None = None
+    repo_digest_status: RepoDigestStatus = "unknown"
+    repo_digest_updated_at: str | None = None
+    repo_head: str = ""
+    repo_digest_summary: str = ""
+    priority_tasks: list[RepoPriorityTask] = Field(default_factory=list)
+    agent_plan_markdown: str = ""
 
 
 def _project_root() -> Path:
@@ -226,6 +258,55 @@ class ActiveProjectStore:
                 return project
         return None
 
+    def trash_root(self) -> Path:
+        path = self.projects_root / ".trash"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @staticmethod
+    def _rmtree_onexc(func: Any, path: str, excinfo: tuple[type[BaseException], BaseException, Any]) -> None:
+        try:
+            os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+        except OSError:
+            pass
+        func(path)
+
+    def _move_to_trash(self, project: ActiveProject, workspace: Path) -> Path:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+        trashed = self.trash_root() / f"{workspace.name}-{project.id}-{stamp}"
+        try:
+            return workspace.replace(trashed)
+        except OSError:
+            return workspace
+
+    def _remove_tree_best_effort(self, path: Path) -> bool:
+        for attempt in range(3):
+            try:
+                try:
+                    shutil.rmtree(path, onexc=self._rmtree_onexc)
+                except TypeError:
+                    shutil.rmtree(path, onerror=self._rmtree_onexc)
+                return True
+            except FileNotFoundError:
+                return True
+            except PermissionError:
+                time.sleep(0.25 * (attempt + 1))
+            except OSError:
+                time.sleep(0.25 * (attempt + 1))
+        return not path.exists()
+
+    def delete_project(self, project_id: str) -> ActiveProject:
+        project = self.get_project(project_id)
+        if project is None:
+            raise ValueError("Project not found.")
+        remaining = [item for item in self._load_manifest() if item.id != project_id]
+        self._save_manifest(remaining)
+        workspace = self.workspace_path(project)
+        if workspace.exists():
+            cleanup_target = self._move_to_trash(project, workspace)
+            self._remove_tree_best_effort(cleanup_target)
+        return project
+
     def save_project(self, project: ActiveProject) -> ActiveProject:
         project = self._normalize_project(project)
         projects = self._load_manifest()
@@ -244,6 +325,13 @@ class ActiveProjectStore:
         idea_id = idea_id_for_project(idea)
         for project in self._load_manifest():
             if idea_id_from_parts(project.source_title, project.source_created_at) == idea_id:
+                return project
+        return None
+
+    def find_by_repo_url(self, repo_url: str) -> ActiveProject | None:
+        normalized = (repo_url or "").strip().rstrip("/")
+        for project in self._load_manifest():
+            if (project.source_repo_url or "").strip().rstrip("/") == normalized:
                 return project
         return None
 
@@ -281,6 +369,9 @@ class ActiveProjectStore:
         normalized = (repo_url or "").strip().rstrip("/")
         if not re.match(r"^https://github\.com/[^/]+/[^/]+(\.git)?$", normalized):
             raise ValueError("Only https://github.com/owner/repo URLs are allowed.")
+        existing = self.find_by_repo_url(normalized)
+        if existing is not None:
+            raise ValueError("That GitHub repository has already been imported.")
         parts = normalized.replace(".git", "").rstrip("/").split("/")
         owner, repo = parts[-2], parts[-1]
         slug_base = _slugify(repo)
@@ -370,6 +461,9 @@ class ActiveProjectStore:
     def instructions_path(self, project: ActiveProject) -> Path:
         return self.workspace_path(project) / "instructions.txt"
 
+    def repo_digest_path(self, project: ActiveProject) -> Path:
+        return self.workspace_path(project) / "REPO_DIGEST.json"
+
     def load_instructions(self, project: ActiveProject) -> str:
         path = self.instructions_path(project)
         if not path.exists():
@@ -383,6 +477,35 @@ class ActiveProjectStore:
         path = self.instructions_path(project)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text((text or "").strip(), encoding="utf-8")
+
+    def write_repo_digest(self, project: ActiveProject, digest: RepoDigest) -> None:
+        self.ensure_project_files(project)
+        self.repo_digest_path(project).write_text(
+            json.dumps(digest.model_dump(), indent=2),
+            encoding="utf-8",
+        )
+        project.repo_digest_status = digest.status
+        project.repo_digest_updated_at = digest.analyzed_at
+        project.repo_head = digest.repo_head
+        project.repo_digest_summary = digest.summary
+        project.priority_tasks = list(digest.priority_tasks)
+        project.agent_plan_markdown = digest.agent_plan_markdown
+        self.save_project(project)
+
+    def load_repo_digest(self, project: ActiveProject) -> RepoDigest:
+        self.ensure_project_files(project)
+        try:
+            payload = json.loads(self.repo_digest_path(project).read_text(encoding="utf-8"))
+            return RepoDigest.model_validate(payload)
+        except Exception:
+            return RepoDigest(
+                status=project.repo_digest_status,
+                analyzed_at=project.repo_digest_updated_at,
+                repo_head=project.repo_head,
+                summary=project.repo_digest_summary,
+                priority_tasks=project.priority_tasks,
+                agent_plan_markdown=project.agent_plan_markdown,
+            )
 
     def ensure_project_files(self, project: ActiveProject) -> None:
         workspace = self.workspace_path(project)
@@ -398,6 +521,11 @@ class ActiveProjectStore:
         if not self.validation_path(project).exists():
             self.validation_path(project).write_text(
                 json.dumps(ValidationSummary().model_dump(), indent=2),
+                encoding="utf-8",
+            )
+        if project.source_type == "github" and not self.repo_digest_path(project).exists():
+            self.repo_digest_path(project).write_text(
+                json.dumps(RepoDigest(status=project.repo_digest_status).model_dump(), indent=2),
                 encoding="utf-8",
             )
 
@@ -608,6 +736,7 @@ class ActiveProjectStore:
         project = self._normalize_project(project)
         validation = self.load_validation_summary(project)
         attempts = self.recent_attempts(project, attempt_limit)
+        repo_digest = self.load_repo_digest(project) if project.source_type == "github" else None
         return {
             "id": project.id,
             "title": project.title,
@@ -641,4 +770,11 @@ class ActiveProjectStore:
             "source_type": project.source_type,
             "source_repo_url": project.source_repo_url,
             "instructions": self.load_instructions(project) if project.source_type == "github" else "",
+            "repo_digest_status": project.repo_digest_status,
+            "repo_digest_updated_at": project.repo_digest_updated_at,
+            "repo_head": project.repo_head,
+            "repo_digest_summary": project.repo_digest_summary,
+            "priority_tasks": [task.model_dump() for task in project.priority_tasks],
+            "agent_plan_markdown": project.agent_plan_markdown,
+            "repo_digest": repo_digest.model_dump() if repo_digest is not None else None,
         }

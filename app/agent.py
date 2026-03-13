@@ -7,6 +7,7 @@ import json
 import logging
 from pathlib import Path
 import shutil
+import subprocess
 from tempfile import TemporaryDirectory
 import time
 from typing import Any
@@ -22,6 +23,8 @@ from app.project_store import (
     ActiveProjectStore,
     ProductBrief,
     ProjectAttempt,
+    RepoDigest,
+    RepoPriorityTask,
     RefCriterion,
     RefRubric,
     SupportedLane,
@@ -86,11 +89,15 @@ EXCLUDED_REPO_DIRS = {
     ".turbo",
     ".idea",
     ".vscode",
+    "artifacts",
 }
 EXCLUDED_REPO_FILES = {
     "records.json",
     "VALIDATION.json",
     "active_projects.json",
+    "PRODUCT_BRIEF.json",
+    "REPO_DIGEST.json",
+    "instructions.txt",
 }
 TEXT_FILE_EXTENSIONS = {
     ".py",
@@ -847,60 +854,123 @@ class ProjectBuilderAgent:
         self.projects.ensure_project_files(project)
         return project
 
-    def generate_instructions_yolo(self, project_id: str) -> str:
-        """Have the LLM analyze the repo and return improvement instructions; save to instructions.txt."""
+    def generate_repo_digest(self, project_id: str) -> dict[str, Any]:
         project = self.projects.get_project(project_id)
         if project is None:
             raise ValueError("Project not found.")
+        if getattr(project, "source_type", "bucket") != "github":
+            raise ValueError("Repo digest is only available for GitHub-imported projects.")
         workspace = self.projects.workspace_path(project)
         if not workspace.exists():
             raise ValueError("Project workspace not found.")
         chunks, included, skipped = build_repo_chunks(workspace)
         if not chunks:
             raise ValueError("No text files were eligible for full-project analysis.")
-        chunk_notes: list[str] = []
-        for chunk in chunks:
-            prompt = (
-                "You are reviewing one chunk of a software project.\n"
-                "Summarize the most important improvement opportunities from this chunk only.\n"
-                'Return strict JSON: {"summary":"...","candidate_files":["path"],"notes":["..."]}\n\n'
-                f"Chunk {chunk.index} of {len(chunks)}\n{chunk.text}"
+        try:
+            repo_head = _repo_head_for_workspace(workspace)
+            chunk_analyses: list[dict[str, Any]] = []
+            for chunk in chunks:
+                prompt = (
+                    "You are reviewing one chunk of a software project.\n"
+                    "Identify what this chunk does, what is weak about it, and what improvements matter most.\n"
+                    'Return strict JSON: {"summary":"...","architecture_notes":["..."],"strengths":["..."],"risks":["..."],"candidate_files":["path"],"priority_tasks":["..."]}\n\n'
+                    f"Chunk {chunk.index} of {len(chunks)}\n{chunk.text}"
+                )
+                chunk_analyses.append(
+                    _run_json_completion(
+                        client=self.ref.client,
+                        settings=self.settings,
+                        prompt=prompt,
+                        temperature=0.2,
+                        label=f"Repo digest chunk {chunk.index}",
+                    )
+                )
+
+            synthesis_prompt = (
+                "You are analyzing an entire software repository from chunked repo context.\n"
+                "Produce a durable repo diagnosis and an execution-ready AI improvement plan.\n"
+                "The plan must be productive and specific to this repo, not generic advice.\n"
+                'Return strict JSON with keys: {"summary":"...","architecture":"...","strengths":["..."],"risks":["..."],'
+                '"priority_tasks":[{"title":"...","rationale":"...","target_files":["path"],"acceptance_checks":["..."]}],"agent_plan_markdown":"..."}\n'
+                'The markdown must contain these exact section headings: "What the repo is", "What is holding it back", '
+                '"Top priorities", "First files to change", "Acceptance checks", "Suggested first pass".\n\n'
+                f"Repo head: {repo_head}\n"
+                f"Included text files: {len(included)}\n"
+                f"Skipped files: {len(skipped)}\n\n"
+                f"Chunk analyses:\n{json.dumps(chunk_analyses, indent=2)}"
             )
             data = _run_json_completion(
                 client=self.ref.client,
                 settings=self.settings,
-                prompt=prompt,
+                prompt=synthesis_prompt,
                 temperature=0.2,
-                label=f"YOLO chunk {chunk.index}",
+                label="Repo digest synthesis",
             )
-            summary = str(data.get("summary", "")).strip()
-            notes = data.get("notes", [])
-            if not isinstance(notes, list):
-                notes = []
-            block = [f"Chunk {chunk.index} summary: {summary}"] if summary else [f"Chunk {chunk.index} summary:"]
-            block.extend(f"- {str(note).strip()}" for note in notes if str(note).strip())
-            chunk_notes.append("\n".join(block).strip())
-        prompt = (
-            "You are analyzing a complete software project from chunked repo context.\n"
-            "Write concise, actionable instructions for an autonomous coding agent to improve the project.\n"
-            "Focus on the most valuable changes first. Cover code quality, tests, docs, reliability, and developer experience where relevant.\n"
-            "Output only the instructions, no preamble or title.\n\n"
-            f"Included text files: {len(included)}\n"
-            f"Skipped files: {len(skipped)}\n\n"
-            + "\n\n".join(chunk_notes)
-        )
-        try:
-            text = _run_text_completion(
-                client=self.ref.client,
-                settings=self.settings,
-                prompt=prompt,
-                temperature=0.3,
-                label="YOLO instructions",
+            digest = _build_repo_digest(
+                data=data,
+                repo_head=repo_head,
+                files_considered=len(included),
+                chunk_count=len(chunks),
+                skipped_files=len(skipped),
             )
-            self.projects.save_instructions(project, text)
-            return text
+            self.projects.write_repo_digest(project, digest)
+            self.projects.append_attempt(
+                project,
+                ProjectAttempt(
+                    attempt_key=fingerprint_for_text("repo-digest", repo_head, digest.summary, digest.agent_plan_markdown),
+                    stage_name="repo_digest",
+                    builder_name="Repo Digest",
+                    summary=digest.summary or "Generated AI repo diagnosis.",
+                    changed_files=["REPO_DIGEST.json"],
+                    baseline_score=project.current_score,
+                    candidate_score=project.current_score,
+                    decision="accepted",
+                    reason="Persisted repo diagnosis and AI execution brief.",
+                    validation_status=project.validation_status,
+                    timestamp=digest.analyzed_at or _now_iso(),
+                    files_considered=len(included),
+                    chunk_count=len(chunks),
+                    skipped_files=len(skipped),
+                    llm_summary=digest.summary or None,
+                ),
+            )
+            return {
+                "project": self.projects.project_summary(self.projects.get_project(project_id) or project),
+                "repo_digest": digest.model_dump(),
+                "agent_plan_markdown": digest.agent_plan_markdown,
+                "files_considered": len(included),
+                "chunk_count": len(chunks),
+                "skipped_files": len(skipped),
+                "run_at": digest.analyzed_at,
+            }
+        except LLMRequestError as exc:
+            digest = RepoDigest(
+                status="deferred",
+                analyzed_at=_now_iso(),
+                repo_head=_repo_head_for_workspace(workspace),
+                files_considered=len(included),
+                chunk_count=len(chunks),
+                skipped_files=len(skipped),
+                summary=str(exc),
+            )
+            self.projects.write_repo_digest(project, digest)
+            raise
         except Exception as exc:
-            raise LLMRequestError(f"YOLO instructions generation failed: {exc}") from exc
+            digest = RepoDigest(
+                status="failed",
+                analyzed_at=_now_iso(),
+                repo_head=_repo_head_for_workspace(workspace),
+                files_considered=len(included),
+                chunk_count=len(chunks),
+                skipped_files=len(skipped),
+                summary=f"Repo digest failed: {exc}",
+            )
+            self.projects.write_repo_digest(project, digest)
+            raise LLMRequestError(f"Repo digest generation failed: {exc}") from exc
+
+    def generate_instructions_yolo(self, project_id: str) -> dict[str, Any]:
+        """Backward-compatible entrypoint: regenerate the repo digest and AI plan."""
+        return self.generate_repo_digest(project_id)
 
     def run_improvement(self, project_id: str) -> dict[str, Any]:
         """Run instruction-based improvement on a GitHub-imported project (no scaffold)."""
@@ -909,12 +979,18 @@ class ProjectBuilderAgent:
             raise ValueError("Project not found.")
         if getattr(project, "source_type", "bucket") != "github":
             raise ValueError("Improvement pipeline is only for GitHub-imported projects.")
+        repo_digest = self.projects.load_repo_digest(project)
+        if repo_digest.status != "ready" or not repo_digest.agent_plan_markdown.strip():
+            self.generate_repo_digest(project_id)
+            project = self.projects.get_project(project_id) or project
+            repo_digest = self.projects.load_repo_digest(project)
         instructions = self.projects.load_instructions(project)
-        if not instructions.strip():
+        ai_plan = repo_digest.agent_plan_markdown.strip()
+        if not instructions.strip() and not ai_plan:
             return {
                 "project": self.projects.project_summary(project),
                 "changed_files": [],
-                "message": "No instructions set. Add instructions or use YOLO to generate them.",
+                "message": "No AI repo plan or manual instructions are available yet.",
                 "run_at": _now_iso(),
             }
         workspace = self.projects.workspace_path(project).resolve()
@@ -925,12 +1001,24 @@ class ProjectBuilderAgent:
             raise ValueError("No text files were eligible for improvement.")
         chunk_analyses: list[dict[str, Any]] = []
         candidate_paths: list[str] = []
+        for task in repo_digest.priority_tasks:
+            for raw in task.target_files:
+                path = str(raw).strip().replace("\\", "/")
+                if path and path not in candidate_paths:
+                    candidate_paths.append(path)
+        combined_instructions = (
+            "AI repo diagnosis and plan:\n"
+            f"{repo_digest.agent_plan_markdown or repo_digest.summary}\n\n"
+            "Manual user instructions:\n"
+            f"{instructions or 'None provided.'}"
+        )
         for chunk in chunks:
             prompt = (
                 "You are reviewing one chunk of a software project for automated improvement.\n"
-                "Consider the user instructions and the provided repo chunk.\n"
+                "Consider the AI repo diagnosis, the manual instructions, and the provided repo chunk.\n"
+                "Prioritize repo-specific work surfaced by the AI diagnosis over generic cleanup.\n"
                 'Return strict JSON: {"summary":"...","candidate_files":["path"],"proposed_changes":["..."]}\n\n'
-                f"Instructions:\n{instructions}\n\n"
+                f"Combined instructions:\n{combined_instructions}\n\n"
                 f"Chunk {chunk.index} of {len(chunks)}\n{chunk.text}"
             )
             analysis = _run_json_completion(
@@ -959,10 +1047,12 @@ class ProjectBuilderAgent:
         candidate_context = "\n\n".join(candidate_context_parts)
         synthesis_prompt = (
             "You are improving a complete software project using chunked full-repo analysis.\n"
-            "Use the instructions, chunk analyses, and current content of candidate files to produce one consolidated edit plan.\n"
+            "Use the AI repo diagnosis, the manual instructions, the chunk analyses, and the current content of candidate files to produce one consolidated edit plan.\n"
+            "Prioritize repo-specific tasks and acceptance checks from the AI diagnosis over generic docs-only work.\n"
             'Return strict JSON: {"summary":"...","edits":[{"path":"relative/path","content":"full new file content"}]}\n'
             "Only include files you are changing. Paths must be relative to the project root. Do not use absolute paths or '..'.\n\n"
-            f"Instructions:\n{instructions}\n\n"
+            f"AI repo diagnosis:\n{repo_digest.model_dump_json(indent=2)}\n\n"
+            f"Manual instructions:\n{instructions or 'None provided.'}\n\n"
             f"Repo included text files: {len(included)}\n"
             f"Repo skipped files: {len(skipped)}\n"
             f"Chunk analyses:\n{json.dumps(chunk_analyses, indent=2)}\n\n"
@@ -1015,7 +1105,7 @@ class ProjectBuilderAgent:
         self.projects.append_attempt(
             project,
             ProjectAttempt(
-                attempt_key=fingerprint_for_text("github-improve", instructions, ",".join(changed), llm_summary),
+                attempt_key=fingerprint_for_text("github-improve", instructions, ai_plan, ",".join(changed), llm_summary),
                 stage_name="improvement",
                 builder_name="Full Repo LLM",
                 summary=llm_summary or "Full-project LLM improvement run.",
@@ -1026,7 +1116,7 @@ class ProjectBuilderAgent:
                 reason=llm_summary or "No edits returned or applied.",
                 validation_status=project.validation_status,
                 timestamp=project.last_cycle_at,
-                instructions_used=instructions,
+                instructions_used=instructions or None,
                 files_considered=len(included),
                 chunk_count=len(chunks),
                 skipped_files=len(skipped) + skipped_edit_paths,
@@ -1301,6 +1391,105 @@ def build_repo_chunks(
     if current_files:
         chunks.append(RepoChunk(index=len(chunks) + 1, text="\n".join(current_lines).strip(), file_paths=current_files))
     return chunks, included, skipped
+
+
+def _repo_head_for_workspace(workspace: Path) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
+        return result.stdout.strip()
+    except Exception:
+        return ""
+
+
+def _build_repo_digest(
+    *,
+    data: dict[str, Any],
+    repo_head: str,
+    files_considered: int,
+    chunk_count: int,
+    skipped_files: int,
+) -> RepoDigest:
+    priority_tasks: list[RepoPriorityTask] = []
+    raw_tasks = data.get("priority_tasks", [])
+    if isinstance(raw_tasks, list):
+        for raw_task in raw_tasks[:8]:
+            if not isinstance(raw_task, dict):
+                continue
+            title = str(raw_task.get("title", "")).strip()
+            if not title:
+                continue
+            target_files = raw_task.get("target_files", [])
+            acceptance_checks = raw_task.get("acceptance_checks", [])
+            priority_tasks.append(
+                RepoPriorityTask(
+                    title=title,
+                    rationale=str(raw_task.get("rationale", "")).strip(),
+                    target_files=[str(item).strip() for item in target_files if str(item).strip()]
+                    if isinstance(target_files, list)
+                    else [],
+                    acceptance_checks=[str(item).strip() for item in acceptance_checks if str(item).strip()]
+                    if isinstance(acceptance_checks, list)
+                    else [],
+                )
+            )
+
+    digest = RepoDigest(
+        status="ready",
+        analyzed_at=_now_iso(),
+        repo_head=repo_head,
+        files_considered=files_considered,
+        chunk_count=chunk_count,
+        skipped_files=skipped_files,
+        summary=str(data.get("summary", "")).strip(),
+        architecture=str(data.get("architecture", "")).strip(),
+        strengths=[str(item).strip() for item in data.get("strengths", []) if str(item).strip()]
+        if isinstance(data.get("strengths"), list)
+        else [],
+        risks=[str(item).strip() for item in data.get("risks", []) if str(item).strip()]
+        if isinstance(data.get("risks"), list)
+        else [],
+        priority_tasks=priority_tasks,
+        agent_plan_markdown=str(data.get("agent_plan_markdown", "")).strip(),
+    )
+    if not digest.summary:
+        digest.summary = "Generated AI repo diagnosis."
+    if not digest.agent_plan_markdown:
+        top_priorities = "\n".join(
+            f"- {task.title}: {task.rationale or 'Important repo improvement'}"
+            for task in digest.priority_tasks[:5]
+        ) or "- Review the highest-risk architecture and test gaps."
+        first_files = "\n".join(
+            f"- {path}"
+            for task in digest.priority_tasks
+            for path in task.target_files[:3]
+        ) or "- Identify the most central application entrypoints and test files."
+        acceptance_checks = "\n".join(
+            f"- {check}"
+            for task in digest.priority_tasks
+            for check in task.acceptance_checks[:3]
+        ) or "- Confirm tests pass and the primary workflow is stronger than before."
+        digest.agent_plan_markdown = (
+            "## What the repo is\n"
+            f"{digest.summary}\n\n"
+            "## What is holding it back\n"
+            + ("\n".join(f"- {risk}" for risk in digest.risks[:5]) or "- The repo needs clearer, prioritized improvement work.")
+            + "\n\n## Top priorities\n"
+            + top_priorities
+            + "\n\n## First files to change\n"
+            + first_files
+            + "\n\n## Acceptance checks\n"
+            + acceptance_checks
+            + "\n\n## Suggested first pass\n"
+            + "- Tackle the highest-priority code path, update tests, and verify the developer run path still works."
+        )
+    return digest
 
 
 def _workspace_file_map(workspace: Path) -> dict[str, str]:

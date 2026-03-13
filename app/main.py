@@ -136,6 +136,27 @@ class AgentRuntime:
             }
             return self._set_last_result(result)
 
+    def import_project(self, repo_url: str) -> dict[str, Any]:
+        with self._lock:
+            project = self.project_store.create_project_from_github(repo_url)
+            try:
+                digest_result = self.project_agent.generate_repo_digest(project.id)
+                result = {
+                    "project": self.project_store.project_summary(self.project_store.get_project(project.id) or project),
+                    "repo_digest": digest_result["repo_digest"],
+                    "message": "Repository cloned and repo digest completed.",
+                    "run_at": digest_result.get("run_at", _now_iso()),
+                }
+            except Exception as exc:
+                project = self.project_store.get_project(project.id) or project
+                result = {
+                    "project": self.project_store.project_summary(project),
+                    "repo_digest": self.project_store.load_repo_digest(project).model_dump(),
+                    "message": f"Repository cloned, but repo digest did not complete: {exc}",
+                    "run_at": _now_iso(),
+                }
+            return self._set_last_result(result)
+
     def select_project(self, idea_id: str) -> dict[str, Any]:
         with self._lock:
             idea = self._bucket_project_by_id(idea_id)
@@ -178,6 +199,29 @@ class AgentRuntime:
             self.project_store.save_project(project)
             result = {
                 "project": self.project_store.project_summary(project),
+                "run_at": _now_iso(),
+            }
+            return self._set_last_result(result)
+
+    def delete_project(self, project_id: str) -> dict[str, Any]:
+        with self._lock:
+            project = self.project_store.delete_project(project_id)
+            result = {
+                "deleted_project_id": project.id,
+                "deleted_title": project.title,
+                "run_at": _now_iso(),
+            }
+            return self._set_last_result(result)
+
+    def delete_idea(self, idea_id: str) -> dict[str, Any]:
+        with self._lock:
+            idea = self._bucket_project_by_id(idea_id)
+            if idea is None:
+                raise ValueError("Project idea not found.")
+            self.bucket.delete_project(idea, run_at=_now_iso())
+            result = {
+                "deleted_idea_id": idea_id,
+                "deleted_title": idea.title,
                 "run_at": _now_iso(),
             }
             return self._set_last_result(result)
@@ -332,11 +376,7 @@ def organize_now() -> dict[str, Any]:
 @app.post("/api/projects/import")
 def import_project(payload: RepoImport) -> dict[str, Any]:
     try:
-        project = runtime.project_store.create_project_from_github(payload.repo_url)
-        return {
-            "project": runtime.project_store.project_summary(project),
-            "message": "Repository cloned and project created.",
-        }
+        return runtime.import_project(payload.repo_url)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -392,8 +432,7 @@ def save_instructions(project_id: str, payload: InstructionsUpdate) -> dict[str,
 @app.post("/api/projects/{project_id}/instructions/yolo")
 def yolo_instructions(project_id: str) -> dict[str, Any]:
     try:
-        instructions = runtime.project_agent.generate_instructions_yolo(project_id)
-        return {"instructions": instructions}
+        return runtime.project_agent.generate_instructions_yolo(project_id)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
@@ -442,6 +481,28 @@ def update_project_auto(project_id: str, payload: ProjectAutoRunUpdate) -> dict[
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Project auto-run update failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.delete("/api/projects/{project_id}")
+def delete_project(project_id: str) -> dict[str, Any]:
+    try:
+        return runtime.delete_project(project_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Project delete failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.delete("/api/ideas/{idea_id}")
+def delete_idea(idea_id: str) -> dict[str, Any]:
+    try:
+        return runtime.delete_idea(idea_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Idea delete failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

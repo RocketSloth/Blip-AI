@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest import mock
 from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
@@ -18,7 +19,7 @@ from app.agent import (
     build_repo_chunks,
     is_llm_text_file,
 )
-from app.bucket import BucketStore, ProjectIdea
+from app.bucket import BucketStore, ProjectIdea, ProjectSection
 from app.config import AgentSettings
 from app.main import AgentRuntime
 from app.project_store import (
@@ -27,6 +28,7 @@ from app.project_store import (
     HardGateResult,
     ProductBrief,
     ProjectAttempt,
+    RepoDigest,
     ProjectFileOperation,
     ValidationSummary,
     idea_id_for_project,
@@ -240,6 +242,73 @@ class ActiveProjectStoreTests(unittest.TestCase):
             self.assertIn(f"{project.slug}/README.md", names)
             self.assertIn(f"{project.slug}/src/app.py", names)
 
+    def test_delete_project_removes_manifest_entry_and_workspace(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            store = ActiveProjectStore(
+                manifest_path=str(base / "active_projects.json"),
+                projects_root=str(base / "projects"),
+            )
+            idea = ProjectIdea(
+                title="Ops Queue Helper",
+                description="Lane: ops-copilot | User: ops lead",
+                created_at="2026-03-12T00:00:00+00:00",
+            )
+
+            project = store.create_project(idea)
+            workspace = store.workspace_path(project)
+            self.assertTrue(workspace.exists())
+
+            deleted = store.delete_project(project.id)
+
+            self.assertEqual(deleted.id, project.id)
+            self.assertIsNone(store.get_project(project.id))
+            self.assertFalse(workspace.exists())
+
+    def test_delete_project_tolerates_cleanup_permission_errors(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            store = ActiveProjectStore(
+                manifest_path=str(base / "active_projects.json"),
+                projects_root=str(base / "projects"),
+            )
+            idea = ProjectIdea(
+                title="Sticky Workspace",
+                description="Lane: ops-copilot | User: ops lead",
+                created_at="2026-03-12T00:00:00+00:00",
+            )
+
+            project = store.create_project(idea)
+            workspace = store.workspace_path(project)
+
+            with mock.patch("app.project_store.shutil.rmtree", side_effect=PermissionError("locked by sync")):
+                deleted = store.delete_project(project.id)
+
+            self.assertEqual(deleted.id, project.id)
+            self.assertIsNone(store.get_project(project.id))
+            self.assertFalse(workspace.exists())
+            trash_entries = list(store.trash_root().glob(f"{project.slug}-{project.id}-*"))
+            self.assertTrue(trash_entries)
+
+
+class BucketStoreTests(unittest.TestCase):
+    def test_delete_project_removes_idea_and_organized_entry(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            bucket = BucketStore(file_path=str(Path(tmpdir) / "BUCKET.md"))
+            idea = ProjectIdea(
+                title="Approval queue",
+                description="Lane: intake-approval | User: reviewer",
+                created_at="2026-03-12T00:00:00+00:00",
+            )
+
+            bucket.append_run([idea], [])
+            bucket.write_organized_sections([ProjectSection(name="Approvals", projects=[idea])], run_at="2026-03-12T00:05:00+00:00")
+            bucket.delete_project(idea, run_at="2026-03-12T00:10:00+00:00")
+
+            self.assertEqual(bucket.list_projects(), [])
+            self.assertEqual(bucket.list_organized_sections(), [])
+            self.assertIn("Deleted project idea: Approval queue.", bucket.read())
+
 
 class ProjectBuilderAgentTests(unittest.TestCase):
     def _make_agent(self, base: Path, lane: str = "ops-copilot") -> tuple[ProjectBuilderAgent, ActiveProjectStore]:
@@ -360,7 +429,7 @@ class ProjectBuilderAgentTests(unittest.TestCase):
             self.assertIn("image.png", skipped)
             self.assertFalse(is_llm_text_file(workspace / "image.png", workspace))
 
-    def test_generate_instructions_yolo_uses_full_repo_chunks(self) -> None:
+    def test_generate_instructions_yolo_persists_repo_digest_without_overwriting_manual_instructions(self) -> None:
         with TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
             agent, store = self._make_agent(base)
@@ -382,30 +451,52 @@ class ProjectBuilderAgentTests(unittest.TestCase):
                     f"# module {idx}\n" + ("value = 'x'\n" * 900),
                     encoding="utf-8",
                 )
+            store.save_instructions(project, "Keep the public API stable.")
 
             original_json = agent_module._run_json_completion
-            original_text = agent_module._run_text_completion
             calls: list[str] = []
             try:
                 def fake_json_completion(**kwargs):
                     prompt = kwargs["prompt"]
                     calls.append(prompt)
-                    return {"summary": "Chunk review", "candidate_files": ["src/module_0.py"], "notes": ["Improve tests"]}
-
-                def fake_text_completion(**kwargs):
-                    self.assertIn("Chunk 1 summary", kwargs["prompt"])
-                    return "- Improve tests\n- Improve docs"
+                    if "Chunk analyses:" in prompt:
+                        return {
+                            "summary": "The repo is a lightweight service with thin tests.",
+                            "architecture": "A small Python app with modules under src/.",
+                            "strengths": ["Simple layout"],
+                            "risks": ["Weak validation coverage"],
+                            "priority_tasks": [
+                                {
+                                    "title": "Strengthen test coverage",
+                                    "rationale": "The repo has limited safety nets around core behavior.",
+                                    "target_files": ["src/module_0.py", "tests/test_module_0.py"],
+                                    "acceptance_checks": ["Core behavior has regression coverage"],
+                                }
+                            ],
+                            "agent_plan_markdown": "## What the repo is\nA lightweight service.\n\n## What is holding it back\n- Thin tests.\n\n## Top priorities\n- Strengthen test coverage.\n\n## First files to change\n- src/module_0.py\n- tests/test_module_0.py\n\n## Acceptance checks\n- Core behavior has regression coverage.\n\n## Suggested first pass\n- Add a focused test and tighten the module behavior.",
+                        }
+                    return {
+                        "summary": "Chunk review",
+                        "architecture_notes": ["Module layer"],
+                        "strengths": ["Readable code"],
+                        "risks": ["Needs better tests"],
+                        "candidate_files": ["src/module_0.py"],
+                        "priority_tasks": ["Improve tests"],
+                    }
 
                 agent_module._run_json_completion = fake_json_completion
-                agent_module._run_text_completion = fake_text_completion
 
-                instructions = agent.generate_instructions_yolo(project.id)
-                self.assertIn("Improve tests", instructions)
+                result = agent.generate_instructions_yolo(project.id)
+                digest = store.load_repo_digest(project)
+
+                self.assertEqual(result["repo_digest"]["status"], "ready")
+                self.assertIn("Strengthen test coverage", result["agent_plan_markdown"])
+                self.assertEqual(digest.summary, "The repo is a lightweight service with thin tests.")
+                self.assertIn("What the repo is", digest.agent_plan_markdown)
+                self.assertEqual(store.load_instructions(project), "Keep the public API stable.")
                 self.assertGreaterEqual(len(calls), 2)
-                self.assertEqual(store.load_instructions(project), instructions)
             finally:
                 agent_module._run_json_completion = original_json
-                agent_module._run_text_completion = original_text
 
     def test_run_improvement_auto_applies_safe_full_repo_edits(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -476,8 +567,156 @@ class ProjectBuilderAgentTests(unittest.TestCase):
             finally:
                 agent_module._run_json_completion = original_json
 
+    def test_run_improvement_uses_repo_digest_and_manual_instructions(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            agent, store = self._make_agent(base)
+            project = ActiveProject(
+                id="github-improve-prompts",
+                title="sample-repo",
+                source_title="sample-repo",
+                source_description="Imported repo",
+                source_created_at="2026-03-12T00:00:00+00:00",
+                slug="sample-repo",
+                source_type="github",
+                source_repo_url="https://github.com/test/sample-repo",
+            )
+            store.save_project(project)
+            workspace = store.workspace_path(project)
+            (workspace / "src").mkdir(parents=True, exist_ok=True)
+            (workspace / "README.md").write_text("# Repo\n", encoding="utf-8")
+            (workspace / "src" / "app.py").write_text("print('before')\n", encoding="utf-8")
+            store.save_instructions(project, "Keep the CLI behavior stable.")
+            store.write_repo_digest(
+                project,
+                RepoDigest(
+                    status="ready",
+                    analyzed_at="2026-03-12T00:05:00+00:00",
+                    summary="This repo needs targeted test and CLI work.",
+                    risks=["Weak CLI coverage"],
+                    priority_tasks=[],
+                    agent_plan_markdown="## What the repo is\nCLI utility\n\n## What is holding it back\n- Weak CLI coverage\n\n## Top priorities\n- Stabilize CLI paths\n\n## First files to change\n- src/app.py\n\n## Acceptance checks\n- CLI path stays stable\n\n## Suggested first pass\n- Add CLI-focused coverage.",
+                ),
+            )
+
+            original_json = agent_module._run_json_completion
+            prompts: list[str] = []
+            try:
+                def fake_json_completion(**kwargs):
+                    prompt = kwargs["prompt"]
+                    prompts.append(prompt)
+                    if '"edits":[{"path":"relative/path","content":"full new file content"}]' in prompt:
+                        return {
+                            "summary": "No-op change set",
+                            "edits": [],
+                        }
+                    return {
+                        "summary": "Chunk review",
+                        "candidate_files": ["src/app.py"],
+                        "proposed_changes": ["Stabilize CLI behavior"],
+                    }
+
+                agent_module._run_json_completion = fake_json_completion
+
+                result = agent.run_improvement(project.id)
+
+                self.assertEqual(result["changed_files"], [])
+                synthesis_prompt = next(
+                    prompt for prompt in prompts if '"edits":[{"path":"relative/path","content":"full new file content"}]' in prompt
+                )
+                self.assertIn("Keep the CLI behavior stable.", synthesis_prompt)
+                self.assertIn("This repo needs targeted test and CLI work.", synthesis_prompt)
+                self.assertIn("What the repo is", synthesis_prompt)
+            finally:
+                agent_module._run_json_completion = original_json
+
 
 class ApiSmokeTests(unittest.TestCase):
+    def test_import_route_returns_repo_digest_summary(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            runtime = AgentRuntime()
+            runtime.bucket = BucketStore(file_path=str(base / "BUCKET.md"))
+            runtime.project_store = ActiveProjectStore(
+                manifest_path=str(base / "active_projects.json"),
+                projects_root=str(base / "projects"),
+            )
+            runtime.project_agent = ProjectBuilderAgent(
+                settings=runtime.settings,
+                bucket=runtime.bucket,
+                projects=runtime.project_store,
+            )
+
+            async def _noop() -> None:
+                return None
+
+            runtime.start = _noop
+            runtime.stop = _noop
+
+            project = ActiveProject(
+                id="github-imported",
+                title="sample-repo",
+                source_title="sample-repo",
+                source_description="Imported repo",
+                source_created_at="2026-03-12T00:00:00+00:00",
+                slug="sample-repo",
+                source_type="github",
+                source_repo_url="https://github.com/test/sample-repo",
+            )
+
+            def fake_create_project(repo_url: str) -> ActiveProject:
+                self.assertEqual(repo_url, "https://github.com/test/sample-repo")
+                runtime.project_store.save_project(project)
+                runtime.project_store.ensure_project_files(project)
+                workspace = runtime.project_store.workspace_path(project)
+                (workspace / "README.md").write_text("# Imported repo\n", encoding="utf-8")
+                return project
+
+            def fake_generate_repo_digest(project_id: str) -> dict[str, object]:
+                self.assertEqual(project_id, project.id)
+                digest = RepoDigest(
+                    status="ready",
+                    analyzed_at="2026-03-12T00:10:00+00:00",
+                    summary="Digest finished successfully.",
+                    repo_head="abc123",
+                    files_considered=3,
+                    chunk_count=1,
+                    skipped_files=0,
+                    agent_plan_markdown="## What the repo is\nImported repo\n\n## What is holding it back\n- Missing tests\n\n## Top priorities\n- Add tests\n\n## First files to change\n- README.md\n\n## Acceptance checks\n- Digest saved\n\n## Suggested first pass\n- Review the README and tests.",
+                )
+                current = runtime.project_store.get_project(project_id) or project
+                runtime.project_store.write_repo_digest(current, digest)
+                return {
+                    "project": runtime.project_store.project_summary(current),
+                    "repo_digest": digest.model_dump(),
+                    "agent_plan_markdown": digest.agent_plan_markdown,
+                    "files_considered": digest.files_considered,
+                    "chunk_count": digest.chunk_count,
+                    "skipped_files": digest.skipped_files,
+                    "run_at": digest.analyzed_at,
+                }
+
+            runtime.project_store.create_project_from_github = fake_create_project
+            runtime.project_agent.generate_repo_digest = fake_generate_repo_digest
+
+            original_runtime = main_module.runtime
+            main_module.runtime = runtime
+            try:
+                with TestClient(main_module.app) as client:
+                    response = client.post(
+                        "/api/projects/import",
+                        json={"repo_url": "https://github.com/test/sample-repo"},
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    payload = response.json()
+                    self.assertEqual(payload["repo_digest"]["status"], "ready")
+                    self.assertEqual(payload["project"]["repo_digest_status"], "ready")
+                    state_response = client.get("/api/state")
+                    self.assertEqual(state_response.status_code, 200)
+                    self.assertEqual(state_response.json()["active_projects"][0]["repo_digest_summary"], "Digest finished successfully.")
+            finally:
+                main_module.runtime = original_runtime
+
     def test_select_build_validate_and_artifact_routes(self) -> None:
         with TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
@@ -551,6 +790,70 @@ class ApiSmokeTests(unittest.TestCase):
 
                     download_response = client.get(f"/api/projects/{project_id}/download")
                     self.assertEqual(download_response.status_code, 200)
+            finally:
+                main_module.runtime = original_runtime
+
+    def test_delete_idea_does_not_delete_project_and_project_delete_removes_it(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            runtime = AgentRuntime()
+            runtime.bucket = BucketStore(file_path=str(base / "BUCKET.md"))
+            runtime.project_store = ActiveProjectStore(
+                manifest_path=str(base / "active_projects.json"),
+                projects_root=str(base / "projects"),
+            )
+            runtime.project_agent = ProjectBuilderAgent(
+                settings=runtime.settings,
+                bucket=runtime.bucket,
+                projects=runtime.project_store,
+            )
+            runtime.project_agent.qualifier.qualify = lambda idea: _supported_decision("ops-copilot")
+            runtime.project_agent.planner.plan = lambda idea, decision: _brief_for_lane(idea.title, "ops-copilot")
+            runtime.project_agent.ref.score = lambda project, workspace, validation: RefScore(
+                score=85,
+                reason="API test score",
+                strengths=["Renders", "Validates"],
+                gaps=[],
+            )
+
+            async def _noop() -> None:
+                return None
+
+            runtime.start = _noop
+            runtime.stop = _noop
+
+            idea = ProjectIdea(
+                title="Inspection queue copilot",
+                description="Lane: ops-copilot | User: ops lead",
+                created_at="2026-03-12T00:00:00+00:00",
+            )
+            runtime.bucket.append_run([idea], [])
+
+            original_runtime = main_module.runtime
+            main_module.runtime = runtime
+            try:
+                with TestClient(main_module.app) as client:
+                    select_response = client.post(
+                        "/api/projects/select",
+                        json={"idea_id": idea_id_for_project(idea)},
+                    )
+                    self.assertEqual(select_response.status_code, 200)
+
+                    state_before = client.get("/api/state").json()
+                    self.assertEqual(len(state_before["projects"]), 1)
+                    self.assertEqual(len(state_before["active_projects"]), 1)
+                    project_id = state_before["active_projects"][0]["id"]
+
+                    delete_idea_response = client.delete(f"/api/ideas/{idea_id_for_project(idea)}")
+                    self.assertEqual(delete_idea_response.status_code, 200)
+                    state_after_idea_delete = client.get("/api/state").json()
+                    self.assertEqual(len(state_after_idea_delete["projects"]), 0)
+                    self.assertEqual(len(state_after_idea_delete["active_projects"]), 1)
+
+                    delete_project_response = client.delete(f"/api/projects/{project_id}")
+                    self.assertEqual(delete_project_response.status_code, 200)
+                    state_after_project_delete = client.get("/api/state").json()
+                    self.assertEqual(len(state_after_project_delete["active_projects"]), 0)
             finally:
                 main_module.runtime = original_runtime
 

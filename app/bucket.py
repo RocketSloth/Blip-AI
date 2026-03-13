@@ -119,6 +119,45 @@ class BucketStore:
 
         self.path.write_text("\n".join(updated), encoding="utf-8")
 
+    @staticmethod
+    def _matches_project_line(line: str, project: ProjectIdea) -> bool:
+        match = PROJECT_PATTERN.match(line)
+        if not match:
+            return False
+        return (
+            match.group("title").strip() == project.title
+            and match.group("ts").strip() == project.created_at
+        )
+
+    @staticmethod
+    def _clean_organized_lines(lines: Iterable[str]) -> list[str]:
+        cleaned: list[str] = []
+        pending_header: str | None = None
+        pending_projects: list[str] = []
+
+        for raw_line in lines:
+            line = raw_line.rstrip()
+            section_match = SECTION_PATTERN.match(line)
+            if section_match:
+                if pending_header and pending_projects:
+                    if cleaned:
+                        cleaned.append("")
+                    cleaned.append(pending_header)
+                    cleaned.extend(pending_projects)
+                pending_header = line
+                pending_projects = []
+                continue
+            if PROJECT_PATTERN.match(line):
+                pending_projects.append(line)
+
+        if pending_header and pending_projects:
+            if cleaned:
+                cleaned.append("")
+            cleaned.append(pending_header)
+            cleaned.extend(pending_projects)
+
+        return cleaned
+
     def list_projects(self) -> list[ProjectIdea]:
         ideas_lines, _, _ = self._split_sections()
         projects: list[ProjectIdea] = []
@@ -213,3 +252,22 @@ class BucketStore:
             updated_history = self._append_history_lines(history_lines, history_entry, run_at)
 
         self._write_sections(ideas_lines, organized_lines, updated_history)
+
+    def delete_project(self, project: ProjectIdea, run_at: str | None = None) -> None:
+        ideas_lines, organized_lines, history_lines = self._split_sections()
+        filtered_ideas = [line for line in ideas_lines if not self._matches_project_line(line, project)]
+        filtered_organized = [line for line in organized_lines if not self._matches_project_line(line, project)]
+
+        if len(filtered_ideas) == len(ideas_lines):
+            raise ValueError("Project idea not found.")
+
+        updated_history = self._append_history_lines(
+            history_lines,
+            [f"- Deleted project idea: {project.title}."],
+            run_at or datetime.now(timezone.utc).isoformat(),
+        )
+        self._write_sections(
+            filtered_ideas,
+            self._clean_organized_lines(filtered_organized),
+            updated_history,
+        )

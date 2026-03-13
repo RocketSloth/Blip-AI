@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -62,18 +62,34 @@
         border: 1px solid rgba(148, 163, 184, 0.24);
       }
 
+      button.danger {
+        color: #fff1f2;
+        background: linear-gradient(135deg, #fb7185, #ef4444);
+      }
+
       button:disabled {
         opacity: 0.55;
         cursor: not-allowed;
       }
 
-      input[type="number"] {
-        width: 120px;
+      input[type="number"],
+      input[type="text"],
+      textarea {
         padding: 0.65rem 0.72rem;
         border-radius: 10px;
         border: 1px solid rgba(148, 163, 184, 0.32);
         background: #0a1322;
         color: var(--text);
+        font: inherit;
+      }
+
+      input[type="number"] {
+        width: 120px;
+      }
+
+      textarea {
+        width: 100%;
+        resize: vertical;
       }
 
       .page {
@@ -248,14 +264,16 @@
 
       .gate-list,
       .attempt-list,
-      .artifact-list {
+      .artifact-list,
+      .task-list {
         display: grid;
         gap: 0.65rem;
         margin-top: 0.8rem;
       }
 
       .gate strong,
-      .attempt strong {
+      .attempt strong,
+      .task strong {
         display: block;
         margin-bottom: 0.25rem;
       }
@@ -299,6 +317,25 @@
         color: var(--muted);
         padding: 0.4rem 0;
       }
+
+      .task {
+        border-radius: 14px;
+        border: 1px solid rgba(114, 136, 174, 0.22);
+        background: rgba(10, 19, 35, 0.94);
+        padding: 0.85rem 0.9rem;
+      }
+
+      .mono {
+        font-family: Consolas, "SFMono-Regular", monospace;
+        font-size: 0.92rem;
+        word-break: break-word;
+      }
+
+      .plan {
+        margin: 0;
+        white-space: pre-wrap;
+        line-height: 1.55;
+      }
     </style>
   </head>
   <body>
@@ -307,9 +344,9 @@
         <h1>Blip Autonomous MVP Factory</h1>
         <p>
           Blip now focuses on three B2B lanes only: internal ops copilots, intake and approval
-          workflows, and reporting dashboards. Each promoted idea is qualified, turned into a frozen
-          product brief, scaffolded on one golden stack, validated with hard gates, and only then
-          reviewed by REF.
+          workflows, and reporting dashboards. GitHub imports now get a full repo digest immediately,
+          AI-authored improvement plans stay separate from your manual instructions, and both ideas
+          and projects can be removed when they are no longer useful.
         </p>
       </div>
 
@@ -322,11 +359,11 @@
       </div>
 
       <details class="panel section" id="githubImportPanel">
-        <summary><strong>Import from GitHub</strong> <span class="muted">Clone a repo and improve it with instructions or YOLO</span></summary>
+        <summary><strong>Import from GitHub</strong> <span class="muted">Clone a repo, digest the codebase, and queue targeted AI improvements</span></summary>
         <div class="section-body">
-          <p class="muted">Paste a public GitHub repo URL. The repo will be cloned and added as a project. Then add instructions or use YOLO to generate them, and run improvement.</p>
+          <p class="muted">Paste a public GitHub repo URL. Blip will clone it, run a full-repo digest immediately, save an AI execution brief, and make the project available for iterative improvement.</p>
           <div class="toolbar" style="margin-bottom: 0.8rem;">
-            <input type="text" id="repoUrl" placeholder="https://github.com/owner/repo" style="flex: 1; min-width: 280px; padding: 0.6rem; border-radius: 10px; border: 1px solid var(--edge); background: #0a1322; color: var(--text);" />
+            <input type="text" id="repoUrl" placeholder="https://github.com/owner/repo" style="flex: 1; min-width: 280px;" />
             <button id="importRepo">Import repo</button>
           </div>
           <span id="importStatus" class="status-line muted"></span>
@@ -349,8 +386,7 @@
         <div class="panel">
           <h2>Active MVP Factory</h2>
           <p class="muted">
-            Heartbeat runs only projects with auto-run enabled. Stalled projects keep their validation
-            trail so you can see exactly what is blocking a usable MVP.
+            Heartbeat runs only projects with auto-run enabled. Imported repositories keep a durable AI repo digest so improvement cycles can focus on specific code and workflow gaps instead of generic cleanup.
           </p>
           <div id="activeProjects"></div>
         </div>
@@ -408,11 +444,13 @@
         const usableCount = activeProjects.filter((project) => project.stage === 'usable_mvp' || project.stage === 'completed').length;
         const stalledCount = activeProjects.filter((project) => project.stage === 'stalled').length;
         const autoProjects = activeProjects.filter((project) => project.auto_run).length;
+        const importedProjects = activeProjects.filter((project) => project.source_type === 'github').length;
 
         return [
           `Last run: ${data.last_run || 'not yet'}`,
           `Bucket ideas: ${(data.projects || []).length}`,
           `Active projects: ${activeProjects.length}`,
+          `GitHub imports: ${importedProjects}`,
           `Usable MVPs: ${usableCount}`,
           `Stalled: ${stalledCount}`,
           `Auto-run enabled: ${autoProjects}`
@@ -438,14 +476,50 @@
         if (result.project_heartbeat) {
           entries.push(`Heartbeat processed ${result.project_heartbeat.projects_processed || 0} active projects.`);
         }
+        if (result.repo_digest) {
+          entries.push(`Repo digest updated: ${result.repo_digest.summary || 'AI improvement plan regenerated.'}`);
+        }
+        if (result.deleted_project_id) {
+          entries.push(`Deleted project ${result.deleted_title || result.deleted_project_id}.`);
+        }
+        if (result.deleted_idea_id) {
+          entries.push(`Deleted idea ${result.deleted_title || result.deleted_idea_id}.`);
+        }
         if (result.decision) {
           entries.push(`Last direct project decision: ${result.decision}.`);
+        }
+        if (result.message) {
+          entries.push(result.message);
         }
         if (!entries.length) {
           entries.push('Latest response captured without a summary.');
         }
 
         container.innerHTML = entries.map((entry) => `<div class="info-box">${escapeHtml(entry)}</div>`).join('');
+      }
+
+      async function deleteIdea(ideaId, title) {
+        if (!window.confirm(`Delete the idea "${title}" from the bucket? This will not delete any promoted active project.`)) {
+          return;
+        }
+        await postAndRefresh(
+          `/api/ideas/${encodeURIComponent(ideaId)}`,
+          { method: 'DELETE' },
+          'Deleting idea...',
+          'Idea deleted'
+        );
+      }
+
+      async function deleteProject(projectId, title) {
+        if (!window.confirm(`Delete the project "${title}"? This removes its workspace and saved artifacts.`)) {
+          return;
+        }
+        await postAndRefresh(
+          `/api/projects/${encodeURIComponent(projectId)}`,
+          { method: 'DELETE' },
+          'Deleting project...',
+          'Project deleted'
+        );
       }
 
       function renderOrganizedSections(sections) {
@@ -483,18 +557,31 @@
             const card = document.createElement('div');
             card.className = 'bucket-card';
             card.innerHTML = `
-              <strong>${escapeHtml(project.title)}</strong>
-              <div class="muted">${escapeHtml(project.description)}</div>
-              <div class="chip-row" style="margin-top: 0.7rem;">
-                <span class="chip ${project.active_project_id ? 'pass' : 'off'}">
-                  ${project.active_project_id ? 'Promoted' : 'Bucket only'}
-                </span>
+              <div class="card-head">
+                <div class="card-title">
+                  <strong>${escapeHtml(project.title)}</strong>
+                  <div class="muted">${escapeHtml(project.description)}</div>
+                  <div class="chip-row" style="margin-top: 0.7rem;">
+                    <span class="chip ${project.active_project_id ? 'pass' : 'off'}">
+                      ${project.active_project_id ? 'Promoted' : 'Bucket only'}
+                    </span>
+                  </div>
+                </div>
+                <div class="inline-actions">
+                  <button class="danger" data-delete-idea="${escapeHtml(project.idea_id)}" data-delete-idea-title="${escapeHtml(project.title)}">Delete idea</button>
+                </div>
               </div>
             `;
             body.appendChild(card);
           });
 
           container.appendChild(wrapper);
+        });
+
+        container.querySelectorAll('[data-delete-idea]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await deleteIdea(button.dataset.deleteIdea, button.dataset.deleteIdeaTitle);
+          });
         });
       }
 
@@ -556,6 +643,20 @@
         `).join('');
       }
 
+      function priorityTasksHtml(tasks) {
+        if (!tasks || !tasks.length) {
+          return '<div class="empty">No priority tasks recorded yet.</div>';
+        }
+        return tasks.map((task) => `
+          <div class="task">
+            <strong>${escapeHtml(task.title)}</strong>
+            <div class="muted">${escapeHtml(task.rationale || '')}</div>
+            <div class="muted">${escapeHtml((task.target_files || []).join(', ') || 'Target files not specified')}</div>
+            <div class="muted">${escapeHtml((task.acceptance_checks || []).join(' | ') || 'Acceptance checks not specified')}</div>
+          </div>
+        `).join('');
+      }
+
       function renderActiveProjects(projects) {
         const container = document.getElementById('activeProjects');
         container.innerHTML = '';
@@ -570,12 +671,21 @@
           const validation = project.validation_summary || {};
           const gates = project.hard_gate_results || [];
           const latestAttempt = project.latest_attempt || null;
+          const digest = project.repo_digest || {};
           const attemptsHtml = (project.recent_attempts || []).length
             ? `<div class="attempt-list">${project.recent_attempts.map(attemptHtml).join('')}</div>`
             : '<div class="empty">No attempts recorded yet.</div>';
           const gateHtmlList = gates.length
             ? `<div class="gate-list">${gates.map((gate) => gateHtml(gate, project.id)).join('')}</div>`
             : '<div class="empty">Validation has not run yet.</div>';
+          const digestStatusClass =
+            project.repo_digest_status === 'ready'
+              ? 'pass'
+              : project.repo_digest_status === 'failed'
+                ? 'fail'
+                : project.repo_digest_status === 'deferred'
+                  ? 'warn'
+                  : 'off';
 
           const card = document.createElement('div');
           card.className = 'project-card';
@@ -592,7 +702,7 @@
                     validation ${escapeHtml(project.validation_status || 'unknown')}
                   </span>
                   <span class="chip ${project.auto_run ? 'pass' : 'off'}">${project.auto_run ? 'auto-run on' : 'auto-run off'}</span>
-                  ${project.source_type === 'github' ? '<span class="chip">GitHub import</span><span class="chip">full-project mode</span>' : ''}
+                  ${project.source_type === 'github' ? `<span class="chip">GitHub import</span><span class="chip ${digestStatusClass}">digest ${escapeHtml(project.repo_digest_status || 'unknown')}</span>` : ''}
                 </div>
               </div>
               <div class="inline-actions">
@@ -600,6 +710,7 @@
                 ${project.source_type !== 'github' ? `<button class="secondary" data-project-build="${escapeHtml(project.id)}">Build scaffold</button>` : ''}
                 <button class="ghost" data-project-validate="${escapeHtml(project.id)}">Validate</button>
                 <button class="ghost" data-project-download="${escapeHtml(project.id)}">Download repo</button>
+                <button class="danger" data-project-delete="${escapeHtml(project.id)}" data-project-title="${escapeHtml(project.title)}">Delete project</button>
                 <label class="checkbox">
                   <input type="checkbox" data-project-auto="${escapeHtml(project.id)}" ${project.auto_run ? 'checked' : ''} />
                   Auto-run
@@ -607,12 +718,43 @@
               </div>
             </div>
             ${project.source_type === 'github' ? `
-            <div class="instructions-block" style="margin: 0.8rem 0; padding: 0.8rem; background: rgba(11,19,35,0.6); border-radius: 12px; border: 1px solid var(--edge);">
-              <span class="label">Improvement instructions</span>
-              <textarea data-project-instructions="${escapeHtml(project.id)}" rows="4" placeholder="Describe how agents should improve this project, or use YOLO to generate from the repo." style="width: 100%; margin-top: 0.4rem; padding: 0.6rem; border-radius: 8px; border: 1px solid var(--edge); background: #0a1322; color: var(--text); resize: vertical;">${escapeHtml(project.instructions || '')}</textarea>
-              <div class="toolbar" style="margin-top: 0.5rem;">
-                <button data-project-save-instructions="${escapeHtml(project.id)}" class="secondary">Save instructions</button>
-                <button data-project-yolo="${escapeHtml(project.id)}" class="ghost">YOLO – generate from repo</button>
+            <div class="subgrid">
+              <div class="grid three-col">
+                <div class="info-box">
+                  <span class="label">AI repo summary</span>
+                  <div>${escapeHtml(project.repo_digest_summary || digest.summary || 'Repo digest has not been generated yet.')}</div>
+                </div>
+                <div class="info-box">
+                  <span class="label">Repo head</span>
+                  <div class="mono">${escapeHtml(project.repo_head || digest.repo_head || 'Unknown')}</div>
+                  <div class="muted">${escapeHtml(project.repo_digest_updated_at || digest.analyzed_at || 'Not analyzed yet')}</div>
+                </div>
+                <div class="info-box">
+                  <span class="label">Repo scan stats</span>
+                  <div>${escapeHtml(`${digest.files_considered || 0} files considered`)}</div>
+                  <div class="muted">${escapeHtml(`${digest.chunk_count || 0} chunks, ${digest.skipped_files || 0} skipped`)}</div>
+                </div>
+              </div>
+
+              <div>
+                <span class="label">Top priorities</span>
+                <div class="task-list">${priorityTasksHtml(project.priority_tasks || digest.priority_tasks || [])}</div>
+              </div>
+
+              <div class="grid two-col">
+                <div class="info-box">
+                  <span class="label">AI execution brief</span>
+                  <pre class="plan">${escapeHtml(project.agent_plan_markdown || digest.agent_plan_markdown || 'No AI execution brief has been saved yet.')}</pre>
+                </div>
+                <div class="info-box">
+                  <span class="label">Manual instructions</span>
+                  <textarea data-project-instructions="${escapeHtml(project.id)}" rows="12" placeholder="Add user priorities, constraints, or product direction here.">${escapeHtml(project.instructions || '')}</textarea>
+                  <div class="toolbar" style="margin-top: 0.6rem;">
+                    <button data-project-save-instructions="${escapeHtml(project.id)}" class="secondary">Save instructions</button>
+                    <button data-project-yolo="${escapeHtml(project.id)}" class="ghost">YOLO - generate AI improvement plan</button>
+                  </div>
+                  <div class="muted" style="margin-top: 0.6rem;">The AI execution brief is persisted separately from your manual instructions. Improvement runs use both.</div>
+                </div>
               </div>
             </div>
             ` : ''}
@@ -626,8 +768,8 @@
                 </div>
                 <div class="info-box">
                   <span class="label">Run contract</span>
-                  <div>${escapeHtml(project.run_command || '')}</div>
-                  <div class="muted">${escapeHtml(project.test_command || '')}</div>
+                  <div class="mono">${escapeHtml(project.run_command || '')}</div>
+                  <div class="muted mono">${escapeHtml(project.test_command || '')}</div>
                 </div>
                 <div class="info-box">
                   <span class="label">Demo scenario</span>
@@ -641,14 +783,13 @@
                   <div>${escapeHtml((latestAttempt && (latestAttempt.llm_summary || latestAttempt.summary)) || project.last_accepted_summary || 'No full-project run yet')}</div>
                 </div>
                 <div class="info-box">
-                  <span class="label">Full-project analysis</span>
-                  <div>${escapeHtml(`${latestAttempt?.files_considered || 0} files considered`)}</div>
-                  <div class="muted">${escapeHtml(`${latestAttempt?.chunk_count || 0} chunks, ${latestAttempt?.skipped_files || 0} skipped`)}</div>
-                </div>
-                <div class="info-box">
                   <span class="label">Last change set</span>
                   <div>${escapeHtml(`${(latestAttempt?.changed_files || []).length} changed file(s)`)}</div>
                   <div class="muted">${escapeHtml((latestAttempt?.changed_files || []).slice(0, 4).join(', ') || 'No applied edits yet')}</div>
+                </div>
+                <div class="info-box">
+                  <span class="label">What is holding it back</span>
+                  <div>${escapeHtml((digest.risks || []).slice(0, 3).join(' | ') || project.stalled_reason || 'No major repo risks recorded yet')}</div>
                 </div>
               </div>
               ` : ''}
@@ -704,8 +845,8 @@
             await postAndRefresh(
               `/api/projects/${projectId}/run`,
               { method: 'POST' },
-              isGitHub ? 'Running full-project chunked improvement...' : 'Running full pipeline...',
-              isGitHub ? 'Full-project improvement run complete' : 'Pipeline run complete'
+              isGitHub ? 'Running repo-specific improvement...' : 'Running full pipeline...',
+              isGitHub ? 'Repo improvement run complete' : 'Pipeline run complete'
             );
           });
         });
@@ -728,6 +869,12 @@
           });
         });
 
+        container.querySelectorAll('[data-project-delete]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await deleteProject(button.dataset.projectDelete, button.dataset.projectTitle);
+          });
+        });
+
         container.querySelectorAll('[data-project-save-instructions]').forEach((button) => {
           button.addEventListener('click', async () => {
             const projectId = button.dataset.projectSaveInstructions;
@@ -743,6 +890,7 @@
               });
               status.textContent = 'Instructions saved.';
               setTimeout(() => { status.textContent = ''; }, 2000);
+              await fetchState();
             } catch (e) {
               status.textContent = e.message || 'Save failed';
             }
@@ -753,13 +901,10 @@
           button.addEventListener('click', async () => {
             const projectId = button.dataset.projectYolo;
             const status = document.getElementById('status');
-            status.textContent = 'Generating instructions from the full project (chunked YOLO)...';
+            status.textContent = 'Generating AI repo digest and productive improvement plan...';
             try {
               const data = await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/instructions/yolo`, { method: 'POST' });
-              const textarea = container.querySelector(`[data-project-instructions="${projectId}"]`);
-              if (textarea && data.instructions != null) textarea.value = data.instructions;
-              status.textContent = 'Full-project YOLO instructions generated.';
-              setTimeout(() => { status.textContent = ''; }, 2000);
+              status.textContent = data.repo_digest?.summary || 'AI improvement plan regenerated.';
               await fetchState();
             } catch (e) {
               status.textContent = e.message || 'YOLO failed';
@@ -810,6 +955,7 @@
                 <button data-promote="${escapeHtml(project.idea_id)}" ${project.active_project_id ? 'disabled' : ''}>
                   ${project.active_project_id ? 'Already promoted' : 'Promote to active MVP'}
                 </button>
+                <button class="danger" data-delete-idea="${escapeHtml(project.idea_id)}" data-delete-idea-title="${escapeHtml(project.title)}">Delete idea</button>
               </div>
             </div>
           `;
@@ -828,6 +974,12 @@
               'Qualifying and promoting idea...',
               'Active MVP project created'
             );
+          });
+        });
+
+        container.querySelectorAll('[data-delete-idea]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await deleteIdea(button.dataset.deleteIdea, button.dataset.deleteIdeaTitle);
           });
         });
       }
@@ -874,9 +1026,10 @@
         const status = document.getElementById('status');
         status.textContent = pendingText;
         try {
-          await fetchJson(url, options);
+          const data = await fetchJson(url, options);
           status.textContent = doneText;
           await fetchState();
+          return data;
         } catch (error) {
           status.textContent = error.message || 'Request failed';
           throw error;
@@ -949,15 +1102,15 @@
           statusEl.textContent = 'Enter a GitHub repo URL.';
           return;
         }
-        statusEl.textContent = 'Cloning repository and preparing full-project analysis...';
+        statusEl.textContent = 'Cloning repository and generating the AI repo digest...';
         try {
-          await fetchJson('/api/projects/import', {
+          const data = await fetchJson('/api/projects/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ repo_url: url }),
           });
           if (input) input.value = '';
-          statusEl.textContent = 'Repository imported.';
+          statusEl.textContent = data.message || 'Repository imported.';
           await fetchState();
         } catch (e) {
           statusEl.textContent = e.message || 'Import failed';
