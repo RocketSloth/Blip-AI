@@ -1,165 +1,21 @@
 {
   "projects": [
     {
-      "id": "99342c7348436748",
-      "title": "AI-powered productivity analytics dashboard",
-      "source_title": "AI-powered productivity analytics dashboard",
-      "source_description": "Visualizes productivity patterns and suggests improvements based on user data.",
-      "source_created_at": "2026-03-11T20:44:29.659571+00:00",
-      "slug": "ai-powered-productivity-analytics-dashboard",
+      "id": "f763629349af9093",
+      "title": "Blip-AI",
+      "source_title": "Blip-AI",
+      "source_description": "# Blip Autonomous MVP Factory",
+      "source_created_at": "2026-03-13T15:14:04.630755+00:00",
+      "slug": "blip-ai",
       "status": "active",
       "auto_run": false,
       "target_score": 95,
-      "current_score": 78,
-      "stack_name": "FastAPI + Jinja + HTMX + SQLite + SQLModel + pytest",
-      "last_cycle_at": "2026-03-13T03:54:25.177256+00:00",
-      "last_accepted_summary": "The MVP effectively addresses the core problem of inefficient reporting methods by providing a user-friendly dashboard for operations teams. However, there are some usability concerns and minor implementation warnings that could affect user experience.",
-      "ref_rubric": {
-        "summary": "Hybrid rubric for AI-powered productivity analytics dashboard in lane ops-copilot.",
-        "criteria": [
-          {
-            "name": "Workflow usefulness",
-            "weight": 30,
-            "description": "Core user flow solves the target job to be done."
-          },
-          {
-            "name": "MVP completeness",
-            "weight": 25,
-            "description": "Essential screens, actions, and seeded demo data are present."
-          },
-          {
-            "name": "Usability",
-            "weight": 20,
-            "description": "The workflow is understandable and easy to try locally."
-          },
-          {
-            "name": "Lane fit",
-            "weight": 15,
-            "description": "The project clearly matches the chosen B2B workflow lane."
-          },
-          {
-            "name": "Quality and clarity",
-            "weight": 10,
-            "description": "Tests, README, and implementation quality support adoption."
-          }
-        ],
-        "scoring_notes": "Hard gates must pass before qualitative scoring can count."
-      },
-      "lane": "ops-copilot",
-      "stage": "stalled",
-      "template_id": "ops-copilot-v1",
-      "product_brief": {
-        "lane": "ops-copilot",
-        "title": "AI-powered productivity analytics dashboard",
-        "opportunity_summary": "Provide operations teams with a tool to visualize productivity patterns and suggest actionable improvements based on real-time user data.",
-        "target_user": "Operations analysts or managers reviewing KPI trends",
-        "job_to_be_done": "Spot trends, inspect a team, and create follow-up actions from the dashboard.",
-        "manual_workaround": "Managers review stale exports and maintain separate action trackers.",
-        "pain_severity": "High",
-        "roi": "Cut reporting prep time and turn insights into tracked next steps.",
-        "must_have_flow": "Review KPI cards, inspect a team, then create a follow-up action or export the current view.",
-        "icp": "Mid-sized to large enterprises with dedicated operations teams focused on performance metrics.",
-        "problem": "Current reporting methods are inefficient, leading to delays in decision-making and missed opportunities for improvement.",
-        "success_metric": "Reduction in time spent on reporting and an increase in actionable insights generated per week.",
-        "required_entities": [
-          "KPI data",
-          "User engagement metrics",
-          "Action tracking"
-        ],
-        "must_have_screens": [
-          "Dashboard overview",
-          "Team performance insights",
-          "Action creation interface"
-        ],
-        "must_have_actions": [
-          "View KPI trends",
-          "Inspect team performance",
-          "Create follow-up actions",
-          "Export data"
-        ],
-        "demo_scenario": "An operations manager logs into the dashboard, reviews the latest KPI trends, identifies a drop in team productivity, inspects the relevant metrics, and creates a follow-up action to address the issue.",
-        "acceptance_criteria": [
-          "Dashboard displays real-time KPI data",
-          "Users can filter and inspect team performance",
-          "Follow-up actions can be created directly from insights",
-          "Export functionality is available for reporting"
-        ]
-      },
-      "run_command": "uvicorn app.main:app --reload",
-      "test_command": "pytest -q",
-      "seed_status": "loaded",
-      "validation_status": "passed",
-      "hard_gate_results": [
-        {
-          "key": "scaffold_contract",
-          "label": "Scaffold contract present",
-          "passed": true,
-          "details": "All template files must exist.",
-          "artifact_path": null
-        },
-        {
-          "key": "run_command",
-          "label": "Run command imports app",
-          "passed": true,
-          "details": "AI-powered productivity analytics dashboard",
-          "artifact_path": "artifacts/import-check.log"
-        },
-        {
-          "key": "smoke_test",
-          "label": "Smoke test passes",
-          "passed": true,
-          "details": ".                                                                        [100%]\n============================== warnings summary ===============================\napp\\main.py:63\n  C:\\Users\\bkbwa\\OneDrive - UNT System\\Desktop\\Projects\\Blip-AI\\data\\projects\\ai-powered-productivity-analytics-dashboard\\app...",
-          "artifact_path": "artifacts/smoke-test.log"
-        },
-        {
-          "key": "seed_data",
-          "label": "Seeded demo data loads",
-          "passed": true,
-          "details": ".                                                                        [100%]\n============================== warnings summary ===============================\napp\\main.py:63\n  C:\\Users\\bkbwa\\OneDrive - UNT System\\Desktop\\Projects\\Blip-AI\\data\\projects\\ai-powered-productivity-analytics-dashboard\\app...",
-          "artifact_path": "artifacts/seed-test.log"
-        },
-        {
-          "key": "workflow_test",
-          "label": "Primary workflow test passes",
-          "passed": true,
-          "details": ".                                                                        [100%]\n============================== warnings summary ===============================\napp\\main.py:63\n  C:\\Users\\bkbwa\\OneDrive - UNT System\\Desktop\\Projects\\Blip-AI\\data\\projects\\ai-powered-productivity-analytics-dashboard\\app...",
-          "artifact_path": "artifacts/workflow-test.log"
-        },
-        {
-          "key": "readme_instructions",
-          "label": "README contains local run instructions",
-          "passed": true,
-          "details": "README must include install, run, and test commands.",
-          "artifact_path": null
-        }
-      ],
-      "usable_mvp_at": "2026-03-12T22:47:15.156500+00:00",
-      "stalled_reason": "No meaningful file changes were proposed.",
-      "validation_artifacts": {
-        "import_check": "artifacts/import-check.log",
-        "smoke_test": "artifacts/smoke-test.log",
-        "seed_test": "artifacts/seed-test.log",
-        "workflow_test": "artifacts/workflow-test.log"
-      },
-      "source_type": "bucket",
-      "source_repo_url": null
-    },
-    {
-      "id": "3688196fc97f49c8",
-      "title": "openclaw",
-      "source_title": "openclaw",
-      "source_description": "# \ud83e\udd9e OpenClaw \u2014 Personal AI Assistant",
-      "source_created_at": "2026-03-13T04:15:29.113091+00:00",
-      "slug": "openclaw",
-      "status": "active",
-      "auto_run": true,
-      "target_score": 95,
       "current_score": 0,
       "stack_name": "FastAPI + Jinja + HTMX + SQLite + SQLModel + pytest",
-      "last_cycle_at": "2026-03-13T04:25:56.653716+00:00",
-      "last_accepted_summary": null,
+      "last_cycle_at": "2026-03-13T18:31:42.855922+00:00",
+      "last_accepted_summary": "Consolidated edit plan to implement robust error handling, refactor project storage to use a database, enhance rate limiting logic, and add unit tests for critical functions.",
       "ref_rubric": {
-        "summary": "Hybrid rubric for openclaw in lane ops-copilot.",
+        "summary": "Hybrid rubric for Blip-AI in lane ops-copilot.",
         "criteria": [
           {
             "name": "Workflow usefulness",
@@ -194,41 +50,40 @@
       "template_id": "ops-copilot-v1",
       "product_brief": {
         "lane": "ops-copilot",
-        "title": "OpenClaw",
-        "opportunity_summary": "OpenClaw streamlines operations management by providing a personal AI assistant that helps operations managers efficiently review and manage internal queues, reducing bottlenecks and improving task follow-up.",
-        "target_user": "Operations managers coordinating internal queues",
-        "job_to_be_done": "Review the queue, capture context, and move operational tasks forward quickly.",
-        "manual_workaround": "Teams manage the queue in shared spreadsheets and chat threads.",
-        "pain_severity": "High",
-        "roi": "Reduce time spent triaging operational bottlenecks and missed follow-ups.",
-        "must_have_flow": "Review the queue, open a task, record the latest note, and save the next action.",
-        "icp": "Mid-sized to large enterprises with complex operational workflows requiring efficient task management.",
-        "problem": "Current methods of managing operational tasks are inefficient, leading to delays and missed follow-ups.",
-        "success_metric": "Reduction in average time to resolve operational tasks and increase in task follow-up rates.",
+        "title": "Blip-AI",
+        "opportunity_summary": "Blip-AI aims to revolutionize the way operations managers handle their workflows by providing an AI-driven platform that automates data analysis and reporting, ultimately leading to better decision-making and increased efficiency.",
+        "target_user": "Operations Managers",
+        "job_to_be_done": "Streamline operational workflows and enhance decision-making through AI-driven insights.",
+        "manual_workaround": "Currently, operations managers rely on spreadsheets and manual reporting to track performance metrics.",
+        "pain_severity": "High - Manual processes are time-consuming and prone to errors, leading to inefficiencies.",
+        "roi": "High - Automating workflows can significantly reduce time spent on reporting and improve operational efficiency.",
+        "must_have_flow": "Data ingestion -> Analysis -> Reporting -> Actionable insights",
+        "icp": "Mid to large-sized companies with dedicated operations teams that require efficient workflow management.",
+        "problem": "Operations managers face challenges in managing data and generating insights due to reliance on outdated manual processes, leading to delays and inaccuracies.",
+        "success_metric": "Reduction in time spent on reporting by at least 50% and an increase in actionable insights generated per week.",
         "required_entities": [
-          "Task",
-          "Queue",
-          "Note",
-          "User"
+          "Data Sources",
+          "Reporting Tools",
+          "User Interface"
         ],
         "must_have_screens": [
-          "Queue Overview",
-          "Task Detail",
-          "Note Entry",
-          "Action Confirmation"
+          "Dashboard",
+          "Data Ingestion Interface",
+          "Reporting Module",
+          "Insights Overview"
         ],
         "must_have_actions": [
-          "Review Queue",
-          "Open Task",
-          "Record Note",
-          "Save Action"
+          "Upload Data",
+          "Generate Reports",
+          "View Insights",
+          "Export Data"
         ],
-        "demo_scenario": "An operations manager logs into OpenClaw, reviews the current queue, opens a task that requires attention, records a note about the task's context, and saves the next action to ensure follow-up.",
+        "demo_scenario": "An operations manager uploads a dataset, the system analyzes the data, generates a report, and provides actionable insights that highlight areas for improvement in operational efficiency.",
         "acceptance_criteria": [
-          "User can view and filter the queue effectively.",
-          "User can open a task and add context notes.",
-          "User can save actions and receive reminders for follow-ups.",
-          "System reduces time spent on task management by at least 30%."
+          "User can successfully upload data and see it reflected in the dashboard.",
+          "Reports can be generated with a single click.",
+          "Insights are actionable and relevant to the user's operational goals.",
+          "User interface is intuitive and requires minimal training."
         ]
       },
       "run_command": "uvicorn app.main:app --reload",
@@ -247,14 +102,14 @@
           "key": "run_command",
           "label": "Run command imports app",
           "passed": false,
-          "details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    from app.main import app; print(app.title)\n    ^^^^^^^^^^^^^^^^^^^^^^^^\nModuleNotFoundError: No module named 'app'",
+          "details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    from app.main import app; print(app.title)\n    ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\bbailey\\AppData\\Local\\Blip-AI\\projects\\blip-ai\\app\\main.py\", line 25, in <module>\n    from app.agent import BucketOrganizerAgent, Pro...",
           "artifact_path": "artifacts/import-check.log"
         },
         {
           "key": "smoke_test",
           "label": "Smoke test passes",
           "passed": false,
-          "details": "no tests ran in 0.01s\n\nERROR: file or directory not found: tests/test_app.py::test_homepage_smoke",
+          "details": "no tests ran in 0.00s\n\nERROR: file or directory not found: tests/test_app.py::test_homepage_smoke",
           "artifact_path": "artifacts/smoke-test.log"
         },
         {
@@ -288,7 +143,186 @@
         "workflow_test": "artifacts/workflow-test.log"
       },
       "source_type": "github",
-      "source_repo_url": "https://github.com/openclaw/openclaw.git"
+      "source_repo_url": "https://github.com/RocketSloth/Blip-AI.git",
+      "repo_digest_status": "ready",
+      "repo_digest_updated_at": "2026-03-13T15:22:01.688087+00:00",
+      "repo_head": "c1b8d9af0d3acbb2ccf8fc65a65c97aa8512c6c4",
+      "repo_digest_summary": "The repository implements a Trend Research Agent and an AI-powered productivity analytics dashboard, utilizing FastAPI and OpenAI's API. It features modular architecture with clear separation of concerns, but faces risks related to external dependencies, error handling, and data management.",
+      "priority_tasks": [
+        {
+          "title": "Implement Rate Limiting for OpenAI API",
+          "rationale": "To prevent service disruptions and manage API usage effectively.",
+          "target_files": [
+            "app/agent.py"
+          ],
+          "acceptance_checks": [
+            "API calls do not exceed defined limits",
+            "Error handling for rate limit exceeded is implemented"
+          ]
+        },
+        {
+          "title": "Switch to Database for Project Storage",
+          "rationale": "To improve scalability and performance compared to markdown file storage.",
+          "target_files": [
+            "app/bucket.py"
+          ],
+          "acceptance_checks": [
+            "Data is stored and retrieved from a database",
+            "Performance benchmarks show improvement"
+          ]
+        },
+        {
+          "title": "Enhance Error Handling in Project Validation",
+          "rationale": "To improve application resilience and provide better feedback on failures.",
+          "target_files": [
+            "app/project_validation.py"
+          ],
+          "acceptance_checks": [
+            "All subprocess calls have timeout management",
+            "Detailed error logs are generated for failures"
+          ]
+        },
+        {
+          "title": "Implement Input Validation in FastAPI Endpoints",
+          "rationale": "To prevent invalid data from causing application errors.",
+          "target_files": [
+            "data/projects/ai-powered-productivity-analytics-dashboard/app/main.py"
+          ],
+          "acceptance_checks": [
+            "All user inputs are validated",
+            "Error responses are returned for invalid inputs"
+          ]
+        },
+        {
+          "title": "Expand Unit Tests for Critical Functionalities",
+          "rationale": "To ensure robustness and catch edge cases in project management.",
+          "target_files": [
+            "tests/test_app.py",
+            "tests/test_project_workflow.py"
+          ],
+          "acceptance_checks": [
+            "Unit tests cover all critical paths",
+            "Code coverage reports show improvement"
+          ]
+        }
+      ],
+      "agent_plan_markdown": "# What the repo is\nThis repository implements a Trend Research Agent that generates project ideas using OpenAI's API and an AI-powered productivity analytics dashboard for operations teams.\n\n# What is holding it back\nThe project faces risks related to external API dependencies, insufficient error handling, and performance issues with markdown file storage.\n\n# Top priorities\n1. Implement rate limiting for OpenAI API calls.\n2. Switch to a database for project storage.\n3. Enhance error handling in project validation.\n4. Implement input validation in FastAPI endpoints.\n5. Expand unit tests for critical functionalities.\n\n# First files to change\n- app/agent.py\n- app/bucket.py\n- app/project_validation.py\n- data/projects/ai-powered-productivity-analytics-dashboard/app/main.py\n- tests/test_app.py\n- tests/test_project_workflow.py\n\n# Acceptance checks\n- Ensure API calls do not exceed defined limits and handle rate limit errors.\n- Verify data is stored and retrieved from a database with performance benchmarks.\n- Confirm all subprocess calls in validation have timeout management and generate detailed error logs.\n- Validate all user inputs in FastAPI endpoints and return appropriate error responses.\n- Ensure unit tests cover all critical paths and improve code coverage.\n\n# Suggested first pass\n1. Start with implementing rate limiting in `app/agent.py`.\n2. Next, refactor `app/bucket.py` to switch to a database.\n3. Enhance error handling in `app/project_validation.py`.\n4. Implement input validation in `data/projects/ai-powered-productivity-analytics-dashboard/app/main.py`.\n5. Finally, expand unit tests in `tests/test_app.py` and `tests/test_project_workflow.py`."
+    },
+    {
+      "id": "d584e4213e8531a9",
+      "title": "TimeSheet",
+      "source_title": "TimeSheet",
+      "source_description": "# TimeSheet - Time Tracking Application",
+      "source_created_at": "2026-03-13T16:27:56.892193+00:00",
+      "slug": "timesheet",
+      "status": "active",
+      "auto_run": false,
+      "target_score": 95,
+      "current_score": 0,
+      "stack_name": "FastAPI + Jinja + HTMX + SQLite + SQLModel + pytest",
+      "last_cycle_at": "2026-03-13T17:30:37.255449+00:00",
+      "last_accepted_summary": null,
+      "ref_rubric": {
+        "summary": "",
+        "criteria": [],
+        "scoring_notes": ""
+      },
+      "lane": "unsupported",
+      "stage": "stalled",
+      "template_id": "",
+      "product_brief": {
+        "lane": "unsupported",
+        "title": "TimeSheet",
+        "opportunity_summary": "# TimeSheet - Time Tracking Application",
+        "target_user": "",
+        "job_to_be_done": "",
+        "manual_workaround": "",
+        "pain_severity": "",
+        "roi": "",
+        "must_have_flow": "",
+        "icp": "",
+        "problem": "",
+        "success_metric": "",
+        "required_entities": [],
+        "must_have_screens": [],
+        "must_have_actions": [],
+        "demo_scenario": "",
+        "acceptance_criteria": []
+      },
+      "run_command": "electron .",
+      "test_command": "pytest -q",
+      "seed_status": "unknown",
+      "validation_status": "unknown",
+      "hard_gate_results": [],
+      "usable_mvp_at": null,
+      "stalled_reason": "This idea does not fit the supported B2B MVP lanes.",
+      "validation_artifacts": {},
+      "source_type": "github",
+      "source_repo_url": "https://github.com/RocketSloth/TimeSheet.git",
+      "repo_digest_status": "ready",
+      "repo_digest_updated_at": "2026-03-13T16:28:51.766424+00:00",
+      "repo_head": "ce373b29ab39cb294c4d9b34d6e4e0066de31952",
+      "repo_digest_summary": "The TimeSheet app is a versatile time tracking application built with Electron and React, offering both a desktop and a standalone web version. It allows users to clock in/out, manage lunch breaks, and track work hours, but faces challenges related to data persistence, error handling, and user experience.",
+      "priority_tasks": [
+        {
+          "title": "Implement better error handling for data reading and writing in preload.js.",
+          "rationale": "Improving error handling will prevent data loss and enhance user experience by providing feedback on data operations.",
+          "target_files": [
+            "preload.js"
+          ],
+          "acceptance_checks": [
+            "Error messages are displayed for failed data operations.",
+            "Data integrity is maintained after error handling implementation."
+          ]
+        },
+        {
+          "title": "Consider adding user authentication for data security.",
+          "rationale": "User authentication will protect sensitive data and allow users to access their information across devices.",
+          "target_files": [
+            "src/App.js",
+            "src/App.css"
+          ],
+          "acceptance_checks": [
+            "Users can create accounts and log in securely.",
+            "Data is stored securely on the backend."
+          ]
+        },
+        {
+          "title": "Enhance the README files to provide clearer instructions for both the desktop and standalone versions.",
+          "rationale": "Clear documentation will improve user onboarding and reduce support queries.",
+          "target_files": [
+            "README.md",
+            "README-STANDALONE.md"
+          ],
+          "acceptance_checks": [
+            "Users can successfully set up and run the application based on the README instructions.",
+            "Documentation includes troubleshooting tips."
+          ]
+        },
+        {
+          "title": "Review and update dependencies in package.json to ensure they are secure and up-to-date.",
+          "rationale": "Keeping dependencies updated reduces security vulnerabilities and improves application performance.",
+          "target_files": [
+            "package.json"
+          ],
+          "acceptance_checks": [
+            "All dependencies are updated to their latest stable versions.",
+            "No security vulnerabilities are reported in the updated dependencies."
+          ]
+        },
+        {
+          "title": "Refactor CSS into a separate stylesheet for better maintainability.",
+          "rationale": "Separating CSS from HTML will enhance maintainability and reusability of styles.",
+          "target_files": [
+            "timesheet.html"
+          ],
+          "acceptance_checks": [
+            "Styles are applied correctly after refactoring.",
+            "No visual regressions occur in the application."
+          ]
+        }
+      ],
+      "agent_plan_markdown": "# What the repo is\nThe TimeSheet app is a desktop and web-based application for tracking work hours, allowing users to clock in/out and manage their time effectively.\n\n# What is holding it back\nKey issues include local data storage risks, limited error handling, and lack of user authentication, which hinder user experience and data security.\n\n# Top priorities\n1. Improve error handling in data operations.\n2. Implement user authentication for data security.\n3. Enhance documentation for better user onboarding.\n4. Update dependencies to mitigate security risks.\n5. Refactor CSS for maintainability.\n\n# First files to change\n- `preload.js`: Implement error handling.\n- `src/App.js`, `src/App.css`: Add user authentication.\n- `README.md`, `README-STANDALONE.md`: Enhance documentation.\n- `package.json`: Update dependencies.\n- `timesheet.html`: Refactor CSS.\n\n# Acceptance checks\n- Ensure error messages are displayed for failed data operations.\n- Verify that user authentication works and data is securely stored.\n- Confirm that README instructions are clear and effective.\n- Check that all dependencies are updated without vulnerabilities.\n- Validate that styles are correctly applied after CSS refactoring.\n\n# Suggested first pass\nStart with implementing error handling in `preload.js`, followed by enhancing user authentication in `src/App.js`. Next, update the README files to improve clarity, and finally, review dependencies in `package.json`."
     }
   ]
 }

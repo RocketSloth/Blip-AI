@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Blip Autonomous MVP Factory</title>
+    <title>Blip Local Agent Platform</title>
     <style>
       :root {
         color-scheme: dark;
@@ -341,12 +341,11 @@
   <body>
     <div class="page">
       <div class="hero">
-        <h1>Blip Autonomous MVP Factory</h1>
+        <h1>Blip Local Agent Platform</h1>
         <p>
-          Blip now focuses on three B2B lanes only: internal ops copilots, intake and approval
-          workflows, and reporting dashboards. GitHub imports now get a full repo digest immediately,
-          AI-authored improvement plans stay separate from your manual instructions, and both ideas
-          and projects can be removed when they are no longer useful.
+          Blip now runs as a local-first repo engineering platform. It keeps the lane-based MVP
+          factory as a built-in specialist recipe, but adds workspaces, isolated runs, approvals,
+          skills, recipes, and a daemon-style control plane for autonomous repo work.
         </p>
       </div>
 
@@ -381,6 +380,38 @@
           </div>
         </div>
       </details>
+
+      <div class="grid two-col">
+        <div class="panel">
+          <h2>Workspaces</h2>
+          <p class="muted">
+            Every imported repo or generated project becomes a workspace with its own recipe,
+            branch state, mission summary, and approval queue.
+          </p>
+          <div id="workspaces"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Runs</h2>
+          <p class="muted">
+            Runs execute in isolated branches or worktrees. Approve a run before its changes land
+            in the main workspace.
+          </p>
+          <div id="runs"></div>
+        </div>
+      </div>
+
+      <div class="grid two-col">
+        <div class="panel">
+          <h2>Approvals</h2>
+          <div id="approvals"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Skills & Recipes</h2>
+          <div id="skillsRecipes"></div>
+        </div>
+      </div>
 
       <div class="grid two-col">
         <div class="panel">
@@ -441,6 +472,9 @@
 
       function formatStatus(data) {
         const activeProjects = data.active_projects || [];
+        const workspaces = data.workspaces || [];
+        const approvals = data.approvals || [];
+        const recentRuns = data.recent_runs || [];
         const usableCount = activeProjects.filter((project) => project.stage === 'usable_mvp' || project.stage === 'completed').length;
         const stalledCount = activeProjects.filter((project) => project.stage === 'stalled').length;
         const autoProjects = activeProjects.filter((project) => project.auto_run).length;
@@ -448,6 +482,9 @@
 
         return [
           `Last run: ${data.last_run || 'not yet'}`,
+          `Workspaces: ${workspaces.length}`,
+          `Recent runs: ${recentRuns.length}`,
+          `Pending approvals: ${approvals.filter((item) => item.status === 'pending').length}`,
           `Bucket ideas: ${(data.projects || []).length}`,
           `Active projects: ${activeProjects.length}`,
           `GitHub imports: ${importedProjects}`,
@@ -496,6 +533,205 @@
         }
 
         container.innerHTML = entries.map((entry) => `<div class="info-box">${escapeHtml(entry)}</div>`).join('');
+      }
+
+      function renderWorkspaces(workspaces) {
+        const container = document.getElementById('workspaces');
+        container.innerHTML = '';
+        if (!workspaces.length) {
+          container.innerHTML = '<p class="empty">No workspaces yet.</p>';
+          return;
+        }
+
+        workspaces.forEach((workspace) => {
+          const card = document.createElement('div');
+          card.className = 'project-card';
+          card.innerHTML = `
+            <div class="card-head">
+              <div class="card-title">
+                <strong>${escapeHtml(workspace.title)}</strong>
+                <div class="chip-row">
+                  <span class="chip">${escapeHtml(workspace.recipe_id)}</span>
+                  <span class="chip">${escapeHtml(workspace.source_type)}</span>
+                  <span class="chip ${workspace.pending_approval_id ? 'warn' : 'off'}">${workspace.pending_approval_id ? 'approval pending' : 'no approval pending'}</span>
+                </div>
+                <div class="muted">${escapeHtml(workspace.mission_summary || 'No mission summary yet')}</div>
+              </div>
+              <div class="inline-actions">
+                <button data-workspace-run="${escapeHtml(workspace.id)}">Start run</button>
+                <button class="ghost" data-workspace-yolo="${escapeHtml(workspace.id)}">YOLO run</button>
+              </div>
+            </div>
+            <div class="subgrid">
+              <div class="grid three-col">
+                <div class="info-box">
+                  <span class="label">Workspace path</span>
+                  <div class="mono">${escapeHtml(workspace.workspace_path || '')}</div>
+                </div>
+                <div class="info-box">
+                  <span class="label">Branch state</span>
+                  <div>${escapeHtml(workspace.current_branch || 'main')}</div>
+                  <div class="muted">Default: ${escapeHtml(workspace.default_branch || 'main')}</div>
+                </div>
+                <div class="info-box">
+                  <span class="label">Digest summary</span>
+                  <div>${escapeHtml(workspace.last_digest_summary || 'No digest summary recorded')}</div>
+                </div>
+              </div>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+
+        container.querySelectorAll('[data-workspace-run]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await postAndRefresh(
+              `/api/workspaces/${encodeURIComponent(button.dataset.workspaceRun)}/runs`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ yolo: false })
+              },
+              'Starting isolated run...',
+              'Run started'
+            );
+          });
+        });
+
+        container.querySelectorAll('[data-workspace-yolo]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await postAndRefresh(
+              `/api/workspaces/${encodeURIComponent(button.dataset.workspaceYolo)}/runs`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ yolo: true })
+              },
+              'Launching YOLO run...',
+              'YOLO run started'
+            );
+          });
+        });
+      }
+
+      function renderRuns(runs) {
+        const container = document.getElementById('runs');
+        container.innerHTML = '';
+        if (!runs.length) {
+          container.innerHTML = '<p class="empty">No runs yet.</p>';
+          return;
+        }
+        container.innerHTML = runs.map((run) => `
+          <div class="attempt">
+            <strong>${escapeHtml(run.id)} | ${escapeHtml(run.status)}</strong>
+            <div>${escapeHtml(run.summary || 'No run summary yet')}</div>
+            <div class="muted">${escapeHtml(run.recipe_id || '')} | ${escapeHtml(run.branch_name || 'no branch')}</div>
+            <div class="muted">${escapeHtml(run.created_at || '')}</div>
+          </div>
+        `).join('');
+      }
+
+      function renderApprovals(approvals) {
+        const container = document.getElementById('approvals');
+        container.innerHTML = '';
+        if (!approvals.length) {
+          container.innerHTML = '<p class="empty">No approvals pending.</p>';
+          return;
+        }
+        approvals.forEach((approval) => {
+          const card = document.createElement('div');
+          card.className = 'attempt';
+          card.innerHTML = `
+            <strong>${escapeHtml(approval.status)} | ${escapeHtml(approval.run_id)}</strong>
+            <div>${escapeHtml(approval.summary || 'No approval summary')}</div>
+            <div class="muted">${escapeHtml(approval.diff_summary || 'No diff summary')}</div>
+            <div class="muted">${escapeHtml((approval.changed_files || []).join(', ') || 'No changed files recorded')}</div>
+            ${approval.status === 'pending' ? `
+              <div class="toolbar" style="margin-top: 0.7rem;">
+                <button data-approve-run="${escapeHtml(approval.run_id)}">Approve</button>
+                <button class="danger" data-reject-run="${escapeHtml(approval.run_id)}">Reject</button>
+              </div>
+            ` : ''}
+          `;
+          container.appendChild(card);
+        });
+
+        container.querySelectorAll('[data-approve-run]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await postAndRefresh(
+              `/api/runs/${encodeURIComponent(button.dataset.approveRun)}/approve`,
+              { method: 'POST' },
+              'Approving run...',
+              'Run approved'
+            );
+          });
+        });
+
+        container.querySelectorAll('[data-reject-run]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            await postAndRefresh(
+              `/api/runs/${encodeURIComponent(button.dataset.rejectRun)}/reject`,
+              { method: 'POST' },
+              'Rejecting run...',
+              'Run rejected'
+            );
+          });
+        });
+      }
+
+      function renderSkillsRecipes(skills, recipes) {
+        const container = document.getElementById('skillsRecipes');
+        const skillHtml = (skills || []).map((skill) => `
+          <div class="info-box">
+            <div class="chip-row">
+              <strong>${escapeHtml(skill.name)}</strong>
+              <span class="chip">${escapeHtml(skill.permission_level)}</span>
+              <span class="chip ${skill.enabled ? 'pass' : 'off'}">${skill.enabled ? 'enabled' : 'disabled'}</span>
+            </div>
+            <div class="muted">${escapeHtml(skill.description || '')}</div>
+            <div class="toolbar" style="margin-top: 0.6rem;">
+              <button class="ghost" data-skill-toggle="${escapeHtml(skill.id)}" data-skill-enabled="${skill.enabled ? '1' : '0'}">${skill.enabled ? 'Disable' : 'Enable'}</button>
+            </div>
+          </div>
+        `).join('');
+        const recipeHtml = (recipes || []).map((recipe) => `
+          <div class="info-box">
+            <div class="chip-row">
+              <strong>${escapeHtml(recipe.name)}</strong>
+              <span class="chip ${recipe.locked ? 'warn' : 'off'}">${recipe.locked ? 'locked' : 'editable'}</span>
+            </div>
+            <div class="muted">${escapeHtml(recipe.description || '')}</div>
+            <pre class="plan">${escapeHtml(JSON.stringify(recipe.definition || {}, null, 2))}</pre>
+          </div>
+        `).join('');
+        container.innerHTML = `
+          <div class="subgrid">
+            <div>
+              <span class="label">Skills</span>
+              <div class="artifact-list">${skillHtml || '<div class="empty">No skills found.</div>'}</div>
+            </div>
+            <div>
+              <span class="label">Recipes</span>
+              <div class="artifact-list">${recipeHtml || '<div class="empty">No recipes found.</div>'}</div>
+            </div>
+          </div>
+        `;
+
+        container.querySelectorAll('[data-skill-toggle]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const nextEnabled = button.dataset.skillEnabled !== '1';
+            await postAndRefresh(
+              `/api/skills/${encodeURIComponent(button.dataset.skillToggle)}`,
+              {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: nextEnabled })
+              },
+              'Updating skill...',
+              'Skill updated'
+            );
+          });
+        });
       }
 
       async function deleteIdea(ideaId, title) {
@@ -842,12 +1078,20 @@
             const projectId = button.dataset.projectRun;
             const project = (await fetchJson('/api/state')).active_projects?.find((p) => p.id === projectId);
             const isGitHub = project?.source_type === 'github';
-            await postAndRefresh(
-              `/api/projects/${projectId}/run`,
-              { method: 'POST' },
-              isGitHub ? 'Running repo-specific improvement...' : 'Running full pipeline...',
-              isGitHub ? 'Repo improvement run complete' : 'Pipeline run complete'
-            );
+            const status = document.getElementById('status');
+            status.textContent = isGitHub ? 'Running repo-specific improvement...' : 'Running full pipeline...';
+            try {
+              const data = await fetchJson(`/api/projects/${projectId}/run`, { method: 'POST' });
+              await fetchState();
+              if (data.decision === 'deferred') {
+                status.textContent = data.message || 'Improvement deferred. Try again shortly.';
+              } else {
+                status.textContent = isGitHub ? 'Repo improvement run complete' : 'Pipeline run complete';
+              }
+            } catch (error) {
+              status.textContent = error.message || 'Project run failed';
+              throw error;
+            }
           });
         });
 
@@ -1017,6 +1261,10 @@
         document.getElementById('heartbeat').value = data.heartbeat_seconds;
         document.getElementById('agentInfo').textContent = formatStatus(data);
         renderLastResult(data.last_result);
+        renderWorkspaces(data.workspaces || []);
+        renderRuns(data.recent_runs || []);
+        renderApprovals(data.approvals || []);
+        renderSkillsRecipes(data.skills || [], data.recipes || []);
         renderActiveProjects(data.active_projects || []);
         renderOrganizedSections(data.organized_sections || []);
         renderIdeaProjects(data.projects || []);

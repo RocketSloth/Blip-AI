@@ -7,6 +7,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import time
 from hashlib import sha1
 from io import BytesIO
@@ -200,19 +201,85 @@ def _project_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def _expand_configured_path(value: str) -> Path:
+    return Path(os.path.expandvars(os.path.expanduser(value)))
+
+
+def _default_projects_root() -> Path:
+    blip_home = os.environ.get("BLIP_HOME")
+    if blip_home:
+        base = _expand_configured_path(blip_home)
+        return (base if base.is_absolute() else (_project_root() / base)) / "workspaces"
+    if os.name == "nt":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        base = _expand_configured_path(local_app_data) if local_app_data else (Path.home() / "AppData" / "Local")
+        return base / "Blip-AI" / "workspaces"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "Blip-AI" / "workspaces"
+    return Path.home() / ".local" / "share" / "blip-ai" / "workspaces"
+
+
+def _resolve_projects_root(root: Path, projects_root: str | None) -> Path:
+    configured = projects_root or os.environ.get("BLIP_PROJECTS_ROOT")
+    if configured:
+        path = _expand_configured_path(configured)
+        return path if path.is_absolute() else (root / path)
+    return _default_projects_root()
+
+
 class ActiveProjectStore:
     def __init__(
         self,
         manifest_path: str = "data/active_projects.json",
-        projects_root: str = "data/projects",
+        projects_root: str | None = None,
     ) -> None:
         root = _project_root()
+        self.repo_root = root
         self.manifest_path = root / manifest_path
-        self.projects_root = root / projects_root
+        self.legacy_projects_root = root / "data" / "projects"
+        self.projects_root = _resolve_projects_root(root, projects_root)
         self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
         self.projects_root.mkdir(parents=True, exist_ok=True)
         if not self.manifest_path.exists():
             self.manifest_path.write_text(json.dumps({"projects": []}, indent=2), encoding="utf-8")
+        self._migrate_legacy_workspaces()
+
+    @staticmethod
+    def _same_path(left: Path, right: Path) -> bool:
+        return os.path.normcase(str(left.resolve())) == os.path.normcase(str(right.resolve()))
+
+    def _legacy_workspace_path(self, slug: str) -> Path:
+        return self.legacy_projects_root / slug
+
+    def _legacy_conflict_trash_path(self, legacy_workspace: Path) -> Path:
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+        return self.trash_root() / f"{legacy_workspace.name}-legacy-{stamp}"
+
+    def _move_path(self, source: Path, destination: Path) -> Path:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        moved = shutil.move(str(source), str(destination))
+        return Path(moved)
+
+    def _migrate_legacy_workspace(self, slug: str) -> None:
+        if self._same_path(self.projects_root, self.legacy_projects_root):
+            return
+
+        legacy_workspace = self._legacy_workspace_path(slug)
+        if not legacy_workspace.exists():
+            return
+
+        workspace = self.projects_root / slug
+        if workspace.exists():
+            self._move_path(legacy_workspace, self._legacy_conflict_trash_path(legacy_workspace))
+            return
+
+        self._move_path(legacy_workspace, workspace)
+
+    def _migrate_legacy_workspaces(self) -> None:
+        if self._same_path(self.projects_root, self.legacy_projects_root):
+            return
+        for project in self._load_manifest():
+            self._migrate_legacy_workspace(project.slug)
 
     def _normalize_project(self, project: ActiveProject) -> ActiveProject:
         if project.product_brief.title == "":
@@ -275,7 +342,7 @@ class ActiveProjectStore:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
         trashed = self.trash_root() / f"{workspace.name}-{project.id}-{stamp}"
         try:
-            return workspace.replace(trashed)
+            return self._move_path(workspace, trashed)
         except OSError:
             return workspace
 
@@ -444,6 +511,7 @@ class ActiveProjectStore:
         return project
 
     def workspace_path(self, project: ActiveProject) -> Path:
+        self._migrate_legacy_workspace(project.slug)
         return self.projects_root / project.slug
 
     def records_path(self, project: ActiveProject) -> Path:

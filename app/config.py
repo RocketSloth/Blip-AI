@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 class AgentSettings(BaseModel):
     model: str = Field(default="gpt-4o-mini")
     heartbeat_seconds: int = Field(default=120, ge=30)
+    daemon_refresh_seconds: int = Field(default=15, ge=5, le=300)
     ideas_per_run: int = Field(default=3, ge=1, le=10)
     builder_candidates_per_run: int = Field(default=3, ge=1, le=5)
     project_target_score: int = Field(default=95, ge=1, le=100)

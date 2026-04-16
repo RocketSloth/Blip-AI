@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -31,6 +32,8 @@ from app.project_store import (
     RepoDigest,
     ProjectFileOperation,
     ValidationSummary,
+    _default_projects_root,
+    _project_root,
     idea_id_for_project,
 )
 
@@ -144,6 +147,96 @@ def _passing_validation() -> ValidationSummary:
 
 
 class ActiveProjectStoreTests(unittest.TestCase):
+    def test_default_projects_root_resolves_outside_repo(self) -> None:
+        projects_root = _default_projects_root().resolve()
+        repo_root = _project_root().resolve()
+
+        self.assertFalse(projects_root.is_relative_to(repo_root))
+
+    def test_projects_root_env_override_is_honored(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            override_root = base / "external-projects"
+
+            with mock.patch.dict(os.environ, {"BLIP_PROJECTS_ROOT": str(override_root)}, clear=False):
+                with mock.patch("app.project_store._project_root", return_value=base):
+                    store = ActiveProjectStore(manifest_path="data/active_projects.json")
+
+            self.assertEqual(store.projects_root, override_root)
+            self.assertTrue(store.projects_root.exists())
+
+    def test_legacy_workspace_is_migrated_to_external_root(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            manifest_path = base / "data" / "active_projects.json"
+            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            project = ActiveProject(
+                id="legacy-project",
+                title="Legacy project",
+                source_title="Legacy project",
+                source_description="Imported before the external workspace move.",
+                source_created_at="2026-03-12T00:00:00+00:00",
+                slug="legacy-project",
+            )
+            manifest_path.write_text(
+                json.dumps({"projects": [project.model_dump()]}, indent=2),
+                encoding="utf-8",
+            )
+            legacy_workspace = base / "data" / "projects" / project.slug
+            legacy_workspace.mkdir(parents=True, exist_ok=True)
+            (legacy_workspace / "README.md").write_text("# Legacy\n", encoding="utf-8")
+            external_root = base / "external-projects"
+
+            with mock.patch("app.project_store._project_root", return_value=base):
+                store = ActiveProjectStore(
+                    manifest_path="data/active_projects.json",
+                    projects_root=str(external_root),
+                )
+
+            migrated_workspace = store.workspace_path(project)
+            self.assertFalse(legacy_workspace.exists())
+            self.assertTrue(migrated_workspace.exists())
+            self.assertEqual((migrated_workspace / "README.md").read_text(encoding="utf-8"), "# Legacy\n")
+
+    def test_legacy_workspace_conflict_moves_old_copy_to_trash(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            manifest_path = base / "data" / "active_projects.json"
+            manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            project = ActiveProject(
+                id="conflict-project",
+                title="Conflict project",
+                source_title="Conflict project",
+                source_description="Imported before the external workspace move.",
+                source_created_at="2026-03-12T00:00:00+00:00",
+                slug="conflict-project",
+            )
+            manifest_path.write_text(
+                json.dumps({"projects": [project.model_dump()]}, indent=2),
+                encoding="utf-8",
+            )
+
+            legacy_workspace = base / "data" / "projects" / project.slug
+            legacy_workspace.mkdir(parents=True, exist_ok=True)
+            (legacy_workspace / "legacy.txt").write_text("legacy copy\n", encoding="utf-8")
+
+            external_root = base / "external-projects"
+            current_workspace = external_root / project.slug
+            current_workspace.mkdir(parents=True, exist_ok=True)
+            (current_workspace / "current.txt").write_text("current copy\n", encoding="utf-8")
+
+            with mock.patch("app.project_store._project_root", return_value=base):
+                store = ActiveProjectStore(
+                    manifest_path="data/active_projects.json",
+                    projects_root=str(external_root),
+                )
+
+            self.assertFalse(legacy_workspace.exists())
+            self.assertEqual((store.workspace_path(project) / "current.txt").read_text(encoding="utf-8"), "current copy\n")
+            trash_entries = list(store.trash_root().glob(f"{project.slug}-legacy-*"))
+            self.assertTrue(trash_entries)
+            self.assertEqual((trash_entries[0] / "legacy.txt").read_text(encoding="utf-8"), "legacy copy\n")
+
     def test_create_project_creates_workspace_and_rejects_duplicates(self) -> None:
         with TemporaryDirectory() as tmpdir:
             base = Path(tmpdir)
@@ -523,13 +616,26 @@ class ProjectBuilderAgentTests(unittest.TestCase):
                     encoding="utf-8",
                 )
             store.save_instructions(project, "Improve the project and add better docs.")
+            store.write_repo_digest(
+                project,
+                RepoDigest(
+                    status="ready",
+                    analyzed_at="2026-03-12T00:05:00+00:00",
+                    summary="This repo needs app and docs cleanup.",
+                    priority_tasks=[],
+                    agent_plan_markdown="## What the repo is\nSample repo\n\n## What is holding it back\n- App logic needs cleanup\n\n## Top priorities\n- Improve app behavior\n\n## First files to change\n- src/app.py\n- README.md\n\n## Acceptance checks\n- App output improves\n\n## Suggested first pass\n- Update the app and supporting docs.",
+                ),
+            )
 
             original_json = agent_module._run_json_completion
-            chunk_calls = {"count": 0}
+            calls = {"count": 0}
             try:
                 def fake_json_completion(**kwargs):
                     prompt = kwargs["prompt"]
+                    calls["count"] += 1
                     if '"edits":[{"path":"relative/path","content":"full new file content"}]' in prompt:
+                        self.assertIn("Targeted files considered", prompt)
+                        self.assertNotIn("Chunk analyses:", prompt)
                         return {
                             "summary": "Applied repo-wide cleanup.",
                             "edits": [
@@ -538,18 +644,7 @@ class ProjectBuilderAgentTests(unittest.TestCase):
                                 {"path": "../escape.txt", "content": "bad"},
                             ],
                         }
-                    chunk_calls["count"] += 1
-                    if chunk_calls["count"] == 1:
-                        return {
-                            "summary": "Chunk 1",
-                            "candidate_files": ["README.md", "src/app.py"],
-                            "proposed_changes": ["Improve docs", "Refactor app"],
-                        }
-                    return {
-                        "summary": "Chunk review",
-                        "candidate_files": ["src/app.py"],
-                        "proposed_changes": ["Tighten implementation"],
-                    }
+                    raise AssertionError("run_improvement should not do full repo chunk analysis when a ready digest exists")
 
                 agent_module._run_json_completion = fake_json_completion
 
@@ -558,12 +653,13 @@ class ProjectBuilderAgentTests(unittest.TestCase):
                 self.assertIn("src/app.py", result["changed_files"])
                 self.assertEqual((workspace / "src" / "app.py").read_text(encoding="utf-8"), "print('after')\n")
                 self.assertFalse((base / "escape.txt").exists())
-                self.assertGreaterEqual(result["chunk_count"], 2)
+                self.assertEqual(result["chunk_count"], 0)
                 self.assertGreater(result["files_considered"], 0)
                 latest = store.project_summary(project)["latest_attempt"]
-                self.assertEqual(latest["builder_name"], "Full Repo LLM")
-                self.assertGreaterEqual(latest["chunk_count"], 2)
+                self.assertEqual(latest["builder_name"], "Targeted Repo LLM")
+                self.assertEqual(latest["chunk_count"], 0)
                 self.assertGreaterEqual(latest["skipped_files"], 1)
+                self.assertEqual(calls["count"], 1)
             finally:
                 agent_module._run_json_completion = original_json
 
@@ -627,8 +723,97 @@ class ProjectBuilderAgentTests(unittest.TestCase):
                 self.assertIn("Keep the CLI behavior stable.", synthesis_prompt)
                 self.assertIn("This repo needs targeted test and CLI work.", synthesis_prompt)
                 self.assertIn("What the repo is", synthesis_prompt)
+                self.assertIn("=== src/app.py ===", synthesis_prompt)
+                self.assertEqual(len(prompts), 1)
             finally:
                 agent_module._run_json_completion = original_json
+
+    def test_run_improvement_timeout_returns_deferred_result_and_records_attempt(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            agent, store = self._make_agent(base)
+            project = ActiveProject(
+                id="github-improve-timeout",
+                title="sample-repo",
+                source_title="sample-repo",
+                source_description="Imported repo",
+                source_created_at="2026-03-12T00:00:00+00:00",
+                slug="sample-repo",
+                source_type="github",
+                source_repo_url="https://github.com/test/sample-repo",
+            )
+            store.save_project(project)
+            workspace = store.workspace_path(project)
+            (workspace / "src").mkdir(parents=True, exist_ok=True)
+            readme_before = "# Repo\n"
+            app_before = "print('before')\n"
+            (workspace / "README.md").write_text(readme_before, encoding="utf-8")
+            (workspace / "src" / "app.py").write_text(app_before, encoding="utf-8")
+            store.save_instructions(project, "Improve the project.")
+            store.write_repo_digest(
+                project,
+                RepoDigest(
+                    status="ready",
+                    analyzed_at="2026-03-12T00:05:00+00:00",
+                    summary="The repo needs cleanup.",
+                    priority_tasks=[],
+                    agent_plan_markdown="## What the repo is\nSample repo\n\n## What is holding it back\n- Slow manual workflow\n\n## Top priorities\n- Improve app behavior\n\n## First files to change\n- src/app.py\n\n## Acceptance checks\n- App behavior improves\n\n## Suggested first pass\n- Update the app logic.",
+                ),
+            )
+
+            original_json = agent_module._run_json_completion
+            try:
+                def fake_json_completion(**kwargs):
+                    raise agent_module.LLMRequestError("Improvement synthesis could not reach OpenAI in time.", retryable=True)
+
+                agent_module._run_json_completion = fake_json_completion
+
+                result = agent.run_improvement(project.id)
+
+                self.assertEqual(result["decision"], "deferred")
+                self.assertTrue(result["retryable"])
+                self.assertEqual(result["changed_files"], [])
+                self.assertIn("Try again", result["message"])
+                self.assertEqual((workspace / "README.md").read_text(encoding="utf-8"), readme_before)
+                self.assertEqual((workspace / "src" / "app.py").read_text(encoding="utf-8"), app_before)
+                latest = store.project_summary(project)["latest_attempt"]
+                self.assertEqual(latest["decision"], "deferred")
+                self.assertEqual(latest["builder_name"], "Targeted Repo LLM")
+            finally:
+                agent_module._run_json_completion = original_json
+
+    def test_run_improvement_with_unusable_digest_timeout_returns_deferred(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            agent, store = self._make_agent(base)
+            project = ActiveProject(
+                id="github-improve-digest-timeout",
+                title="sample-repo",
+                source_title="sample-repo",
+                source_description="Imported repo",
+                source_created_at="2026-03-12T00:00:00+00:00",
+                slug="sample-repo",
+                source_type="github",
+                source_repo_url="https://github.com/test/sample-repo",
+            )
+            store.save_project(project)
+            workspace = store.workspace_path(project)
+            (workspace / "src").mkdir(parents=True, exist_ok=True)
+            (workspace / "src" / "app.py").write_text("print('before')\n", encoding="utf-8")
+            store.save_instructions(project, "Improve the project.")
+            store.write_repo_digest(project, RepoDigest(status="deferred", summary="Old timeout"))
+
+            with mock.patch.object(
+                agent,
+                "generate_repo_digest",
+                side_effect=agent_module.LLMRequestError("Repo digest synthesis could not reach OpenAI in time.", retryable=True),
+            ):
+                result = agent.run_improvement(project.id)
+
+            self.assertEqual(result["decision"], "deferred")
+            self.assertTrue(result["retryable"])
+            latest = store.project_summary(project)["latest_attempt"]
+            self.assertEqual(latest["decision"], "deferred")
 
 
 class ApiSmokeTests(unittest.TestCase):
@@ -714,6 +899,122 @@ class ApiSmokeTests(unittest.TestCase):
                     state_response = client.get("/api/state")
                     self.assertEqual(state_response.status_code, 200)
                     self.assertEqual(state_response.json()["active_projects"][0]["repo_digest_summary"], "Digest finished successfully.")
+            finally:
+                main_module.runtime = original_runtime
+
+    def test_github_run_route_returns_deferred_on_timeout(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            runtime = AgentRuntime()
+            runtime.bucket = BucketStore(file_path=str(base / "BUCKET.md"))
+            runtime.project_store = ActiveProjectStore(
+                manifest_path=str(base / "active_projects.json"),
+                projects_root=str(base / "projects"),
+            )
+            runtime.project_agent = ProjectBuilderAgent(
+                settings=runtime.settings,
+                bucket=runtime.bucket,
+                projects=runtime.project_store,
+            )
+
+            async def _noop() -> None:
+                return None
+
+            runtime.start = _noop
+            runtime.stop = _noop
+
+            project = ActiveProject(
+                id="github-run-timeout",
+                title="sample-repo",
+                source_title="sample-repo",
+                source_description="Imported repo",
+                source_created_at="2026-03-12T00:00:00+00:00",
+                slug="sample-repo",
+                source_type="github",
+                source_repo_url="https://github.com/test/sample-repo",
+            )
+            runtime.project_store.save_project(project)
+            workspace = runtime.project_store.workspace_path(project)
+            (workspace / "src").mkdir(parents=True, exist_ok=True)
+            (workspace / "src" / "app.py").write_text("print('before')\n", encoding="utf-8")
+            runtime.project_store.save_instructions(project, "Improve the repo.")
+            runtime.project_store.write_repo_digest(
+                project,
+                RepoDigest(
+                    status="ready",
+                    analyzed_at="2026-03-12T00:05:00+00:00",
+                    summary="Target the main app file.",
+                    agent_plan_markdown="## What the repo is\nSample repo\n\n## What is holding it back\n- Slow workflow\n\n## Top priorities\n- Improve the app\n\n## First files to change\n- src/app.py\n\n## Acceptance checks\n- App improves\n\n## Suggested first pass\n- Update src/app.py.",
+                ),
+            )
+
+            original_json = agent_module._run_json_completion
+            agent_module._run_json_completion = lambda **kwargs: (_ for _ in ()).throw(
+                agent_module.LLMRequestError("Improvement synthesis could not reach OpenAI in time.", retryable=True)
+            )
+
+            original_runtime = main_module.runtime
+            main_module.runtime = runtime
+            try:
+                with TestClient(main_module.app) as client:
+                    response = client.post(f"/api/projects/{project.id}/run")
+                    self.assertEqual(response.status_code, 200)
+                    payload = response.json()
+                    self.assertEqual(payload["run"]["status"], "deferred")
+                    self.assertTrue(payload["run"]["retryable"])
+                    self.assertEqual(payload["run"]["result_payload"].get("changed_files", []), [])
+                    self.assertIsNone(payload["approval"])
+            finally:
+                main_module.runtime = original_runtime
+                agent_module._run_json_completion = original_json
+
+    def test_state_includes_workspace_run_and_registry_surfaces(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            base = Path(tmpdir)
+            runtime = AgentRuntime()
+            runtime.bucket = BucketStore(file_path=str(base / "BUCKET.md"))
+            runtime.project_store = ActiveProjectStore(
+                manifest_path=str(base / "active_projects.json"),
+                projects_root=str(base / "projects"),
+            )
+
+            async def _noop() -> None:
+                return None
+
+            runtime.start = _noop
+            runtime.stop = _noop
+
+            idea = ProjectIdea(
+                title="Inspection queue copilot",
+                description="Lane: ops-copilot | User: ops lead",
+                created_at="2026-03-12T00:00:00+00:00",
+            )
+            runtime.bucket.append_run([idea], [])
+            runtime.project_agent = ProjectBuilderAgent(
+                settings=runtime.settings,
+                bucket=runtime.bucket,
+                projects=runtime.project_store,
+            )
+            runtime.project_agent.qualifier.qualify = lambda idea: _supported_decision("ops-copilot")
+            runtime.project_agent.planner.plan = lambda idea, decision: _brief_for_lane(idea.title, "ops-copilot")
+            runtime.project_agent.ref.score = lambda project, workspace, validation: RefScore(
+                score=80,
+                reason="State smoke score",
+                strengths=["Runnable"],
+                gaps=[],
+            )
+            runtime.select_project(idea_id_for_project(idea))
+
+            original_runtime = main_module.runtime
+            main_module.runtime = runtime
+            try:
+                with TestClient(main_module.app) as client:
+                    response = client.get("/api/state")
+                    self.assertEqual(response.status_code, 200)
+                    payload = response.json()
+                    self.assertTrue(payload["workspaces"])
+                    self.assertTrue(payload["skills"])
+                    self.assertTrue(payload["recipes"])
             finally:
                 main_module.runtime = original_runtime
 

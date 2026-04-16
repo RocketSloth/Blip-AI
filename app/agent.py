@@ -38,7 +38,9 @@ logger = logging.getLogger(__name__)
 
 
 class LLMRequestError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, retryable: bool = True) -> None:
+        super().__init__(message)
+        self.retryable = retryable
 
 
 class RefScore(BaseModel):
@@ -180,7 +182,7 @@ def _run_json_completion(
             return _parse_json_object(text)
         except (APITimeoutError, APIConnectionError) as exc:
             if attempt >= settings.openai_request_retries:
-                raise LLMRequestError(f"{label} could not reach OpenAI in time.") from exc
+                raise LLMRequestError(f"{label} could not reach OpenAI in time.", retryable=True) from exc
             time.sleep(min(2**attempt, 4))
 
 
@@ -203,7 +205,7 @@ def _run_text_completion(
             return (response.choices[0].message.content or "").strip()
         except (APITimeoutError, APIConnectionError) as exc:
             if attempt >= settings.openai_request_retries:
-                raise LLMRequestError(f"{label} could not reach OpenAI in time.") from exc
+                raise LLMRequestError(f"{label} could not reach OpenAI in time.", retryable=True) from exc
             time.sleep(min(2**attempt, 4))
 
 
@@ -818,8 +820,12 @@ class ProjectBuilderAgent:
                 else:
                     results.append(self.run_cycle(project.id, manual=False))
             except LLMRequestError as exc:
-                logger.warning("Automatic project run deferred for %s: %s", project.id, exc)
-                results.append({"project_id": project.id, "title": project.title, "decision": "deferred", "error": str(exc), "run_at": run_at})
+                if getattr(exc, "retryable", True):
+                    logger.warning("Automatic project run deferred for %s: %s", project.id, exc)
+                    results.append({"project_id": project.id, "title": project.title, "decision": "deferred", "error": str(exc), "retryable": True, "run_at": run_at})
+                else:
+                    logger.exception("Automatic project run failed for %s", project.id)
+                    results.append({"project_id": project.id, "title": project.title, "decision": "error", "error": str(exc), "run_at": run_at})
             except ValueError as exc:
                 logger.warning("Automatic project run skipped for %s: %s", project.id, exc)
                 results.append({"project_id": project.id, "title": project.title, "decision": "skipped", "error": str(exc), "run_at": run_at})
@@ -966,7 +972,7 @@ class ProjectBuilderAgent:
                 summary=f"Repo digest failed: {exc}",
             )
             self.projects.write_repo_digest(project, digest)
-            raise LLMRequestError(f"Repo digest generation failed: {exc}") from exc
+            raise LLMRequestError(f"Repo digest generation failed: {exc}", retryable=False) from exc
 
     def generate_instructions_yolo(self, project_id: str) -> dict[str, Any]:
         """Backward-compatible entrypoint: regenerate the repo digest and AI plan."""
@@ -981,7 +987,16 @@ class ProjectBuilderAgent:
             raise ValueError("Improvement pipeline is only for GitHub-imported projects.")
         repo_digest = self.projects.load_repo_digest(project)
         if repo_digest.status != "ready" or not repo_digest.agent_plan_markdown.strip():
-            self.generate_repo_digest(project_id)
+            try:
+                self.generate_repo_digest(project_id)
+            except LLMRequestError as exc:
+                if getattr(exc, "retryable", True):
+                    return self._record_deferred_improvement(
+                        project,
+                        error=str(exc),
+                        instructions=self.projects.load_instructions(project),
+                    )
+                raise
             project = self.projects.get_project(project_id) or project
             repo_digest = self.projects.load_repo_digest(project)
         instructions = self.projects.load_instructions(project)
@@ -989,73 +1004,37 @@ class ProjectBuilderAgent:
         if not instructions.strip() and not ai_plan:
             return {
                 "project": self.projects.project_summary(project),
+                "decision": "no_change",
                 "changed_files": [],
                 "message": "No AI repo plan or manual instructions are available yet.",
+                "retryable": False,
                 "run_at": _now_iso(),
             }
         workspace = self.projects.workspace_path(project).resolve()
         if not workspace.exists():
             raise ValueError("Project workspace not found.")
-        chunks, included, skipped = build_repo_chunks(workspace)
-        if not chunks:
+        _, included, skipped = build_repo_manifest(workspace)
+        if not included:
             raise ValueError("No text files were eligible for improvement.")
-        chunk_analyses: list[dict[str, Any]] = []
-        candidate_paths: list[str] = []
-        for task in repo_digest.priority_tasks:
-            for raw in task.target_files:
-                path = str(raw).strip().replace("\\", "/")
-                if path and path not in candidate_paths:
-                    candidate_paths.append(path)
+        candidate_paths = self._improvement_target_files(project, workspace, repo_digest, included)
         combined_instructions = (
             "AI repo diagnosis and plan:\n"
             f"{repo_digest.agent_plan_markdown or repo_digest.summary}\n\n"
             "Manual user instructions:\n"
             f"{instructions or 'None provided.'}"
         )
-        for chunk in chunks:
-            prompt = (
-                "You are reviewing one chunk of a software project for automated improvement.\n"
-                "Consider the AI repo diagnosis, the manual instructions, and the provided repo chunk.\n"
-                "Prioritize repo-specific work surfaced by the AI diagnosis over generic cleanup.\n"
-                'Return strict JSON: {"summary":"...","candidate_files":["path"],"proposed_changes":["..."]}\n\n'
-                f"Combined instructions:\n{combined_instructions}\n\n"
-                f"Chunk {chunk.index} of {len(chunks)}\n{chunk.text}"
-            )
-            analysis = _run_json_completion(
-                client=self.ref.client,
-                settings=self.settings,
-                prompt=prompt,
-                temperature=0.2,
-                label=f"Improvement chunk {chunk.index}",
-            )
-            chunk_analyses.append(analysis)
-            raw_candidates = analysis.get("candidate_files", [])
-            if isinstance(raw_candidates, list):
-                for raw in raw_candidates:
-                    path = str(raw).strip().replace("\\", "/")
-                    if path and path not in candidate_paths:
-                        candidate_paths.append(path)
-        if not candidate_paths:
-            candidate_paths = included[: min(12, len(included))]
-        candidate_paths = candidate_paths[:MAX_REPO_EDIT_FILES]
-        candidate_context_parts: list[str] = []
-        for relative in candidate_paths:
-            target = workspace / relative
-            if not target.exists() or not target.is_file() or not is_llm_text_file(target, workspace):
-                continue
-            candidate_context_parts.append(f"=== {relative} ===\n{_read_text_safe(target)[:MAX_REPO_FILE_CHARS]}")
-        candidate_context = "\n\n".join(candidate_context_parts)
+        candidate_context = self._targeted_repo_context(workspace, candidate_paths)
         synthesis_prompt = (
-            "You are improving a complete software project using chunked full-repo analysis.\n"
-            "Use the AI repo diagnosis, the manual instructions, the chunk analyses, and the current content of candidate files to produce one consolidated edit plan.\n"
+            "You are improving a software project using a cached repo digest and a targeted set of current files.\n"
+            "Use the AI repo diagnosis, the manual instructions, and the current content of candidate files to produce one consolidated edit plan.\n"
             "Prioritize repo-specific tasks and acceptance checks from the AI diagnosis over generic docs-only work.\n"
             'Return strict JSON: {"summary":"...","edits":[{"path":"relative/path","content":"full new file content"}]}\n'
             "Only include files you are changing. Paths must be relative to the project root. Do not use absolute paths or '..'.\n\n"
             f"AI repo diagnosis:\n{repo_digest.model_dump_json(indent=2)}\n\n"
             f"Manual instructions:\n{instructions or 'None provided.'}\n\n"
-            f"Repo included text files: {len(included)}\n"
+            f"Targeted files considered: {len(candidate_paths)}\n"
+            f"Repo text files available: {len(included)}\n"
             f"Repo skipped files: {len(skipped)}\n"
-            f"Chunk analyses:\n{json.dumps(chunk_analyses, indent=2)}\n\n"
             f"Candidate files:\n{candidate_context}"
         )
         try:
@@ -1066,8 +1045,18 @@ class ProjectBuilderAgent:
                 temperature=0.2,
                 label="Improvement synthesis",
             )
+        except LLMRequestError as exc:
+            if getattr(exc, "retryable", True):
+                return self._record_deferred_improvement(
+                    project,
+                    error=f"Improvement step failed: {exc}",
+                    instructions=instructions,
+                    files_considered=len(candidate_paths),
+                    skipped_files=len(skipped),
+                )
+            raise
         except Exception as exc:
-            raise LLMRequestError(f"Improvement step failed: {exc}") from exc
+            raise LLMRequestError(f"Improvement step failed: {exc}", retryable=False) from exc
         edits = data.get("edits") or []
         if not isinstance(edits, list):
             edits = []
@@ -1107,7 +1096,7 @@ class ProjectBuilderAgent:
             ProjectAttempt(
                 attempt_key=fingerprint_for_text("github-improve", instructions, ai_plan, ",".join(changed), llm_summary),
                 stage_name="improvement",
-                builder_name="Full Repo LLM",
+                builder_name="Targeted Repo LLM",
                 summary=llm_summary or "Full-project LLM improvement run.",
                 changed_files=changed,
                 baseline_score=project.current_score,
@@ -1117,22 +1106,143 @@ class ProjectBuilderAgent:
                 validation_status=project.validation_status,
                 timestamp=project.last_cycle_at,
                 instructions_used=instructions or None,
-                files_considered=len(included),
-                chunk_count=len(chunks),
+                files_considered=len(candidate_paths),
+                chunk_count=0,
                 skipped_files=len(skipped) + skipped_edit_paths,
                 llm_summary=llm_summary or None,
             ),
         )
         return {
             "project": self.projects.project_summary(self.projects.get_project(project_id) or project),
+            "decision": "accepted" if changed else "no_change",
             "changed_files": changed,
             "message": f"Applied improvements to {len(changed)} file(s)." if changed else "No edits returned or applied.",
+            "retryable": False,
             "summary": llm_summary,
-            "files_considered": len(included),
-            "chunk_count": len(chunks),
+            "files_considered": len(candidate_paths),
+            "chunk_count": 0,
             "skipped_files": len(skipped) + skipped_edit_paths,
             "run_at": project.last_cycle_at,
         }
+
+    def _record_deferred_improvement(
+        self,
+        project: ActiveProject,
+        *,
+        error: str,
+        instructions: str,
+        files_considered: int = 0,
+        skipped_files: int = 0,
+    ) -> dict[str, Any]:
+        project.last_cycle_at = _now_iso()
+        self.projects.save_project(project)
+        self.projects.append_attempt(
+            project,
+            ProjectAttempt(
+                attempt_key=fingerprint_for_text("github-improve-deferred", project.id, error, instructions or ""),
+                stage_name="improvement",
+                builder_name="Targeted Repo LLM",
+                summary="Deferred imported-repo improvement run.",
+                changed_files=[],
+                baseline_score=project.current_score,
+                candidate_score=None,
+                decision="deferred",
+                reason=error,
+                validation_status=project.validation_status,
+                timestamp=project.last_cycle_at,
+                instructions_used=instructions or None,
+                files_considered=files_considered,
+                chunk_count=0,
+                skipped_files=skipped_files,
+            ),
+        )
+        return {
+            "project": self.projects.project_summary(self.projects.get_project(project.id) or project),
+            "decision": "deferred",
+            "changed_files": [],
+            "message": "Improvement deferred because OpenAI did not respond in time. Try again in a moment.",
+            "error": error,
+            "retryable": True,
+            "files_considered": files_considered,
+            "chunk_count": 0,
+            "skipped_files": skipped_files,
+            "run_at": project.last_cycle_at,
+        }
+
+    def _improvement_target_files(
+        self,
+        project: ActiveProject,
+        workspace: Path,
+        repo_digest: RepoDigest,
+        included: list[str],
+    ) -> list[str]:
+        included_set = set(included)
+        candidate_paths: list[str] = []
+
+        def add_path(raw: str) -> None:
+            path = str(raw).strip().replace("\\", "/")
+            if not path or path not in included_set or path in candidate_paths:
+                return
+            candidate_paths.append(path)
+
+        for task in repo_digest.priority_tasks:
+            for raw in task.target_files:
+                add_path(raw)
+
+        latest_attempts = self.projects.recent_attempts(project, limit=1)
+        if latest_attempts:
+            for raw in latest_attempts[0].changed_files:
+                add_path(raw)
+
+        fallback_priority = [
+            "app/main.py",
+            "src/main.py",
+            "src/app.py",
+            "main.py",
+            "app.py",
+            "server.py",
+            "index.js",
+            "src/index.js",
+            "index.ts",
+            "src/index.ts",
+            "package.json",
+            "requirements.txt",
+            "README.md",
+        ]
+        for raw in fallback_priority:
+            add_path(raw)
+
+        if not candidate_paths:
+            preferred = [
+                path
+                for path in included
+                if Path(path).suffix.lower() in {".py", ".js", ".jsx", ".ts", ".tsx", ".html", ".css", ".json"}
+                and Path(path).name.lower() != "readme.md"
+            ]
+            for raw in preferred or included:
+                add_path(raw)
+                if len(candidate_paths) >= 12:
+                    break
+
+        filtered: list[str] = []
+        for path in candidate_paths:
+            target = workspace / path
+            if target.exists() and target.is_file() and is_llm_text_file(target, workspace):
+                filtered.append(path)
+            if len(filtered) >= min(12, MAX_REPO_EDIT_FILES):
+                break
+
+        return filtered
+
+    @staticmethod
+    def _targeted_repo_context(workspace: Path, candidate_paths: list[str]) -> str:
+        parts: list[str] = []
+        for relative in candidate_paths:
+            target = workspace / relative
+            if not target.exists() or not target.is_file():
+                continue
+            parts.append(f"=== {relative} ===\n{_read_text_safe(target)[:MAX_REPO_FILE_CHARS]}")
+        return "\n\n".join(parts)
 
     def _should_accept_candidate(
         self,
@@ -1308,10 +1418,6 @@ def _read_text_safe(path: Path) -> str:
 def is_llm_text_file(path: Path, workspace: Path | None = None) -> bool:
     if not path.is_file():
         return False
-    if path.name in EXCLUDED_REPO_FILES:
-        return False
-    if any(part in EXCLUDED_REPO_DIRS for part in path.parts):
-        return False
     if workspace is not None:
         try:
             relative = path.relative_to(workspace)
@@ -1320,6 +1426,11 @@ def is_llm_text_file(path: Path, workspace: Path | None = None) -> bool:
         if any(part in EXCLUDED_REPO_DIRS for part in relative.parts):
             return False
         if relative.name in EXCLUDED_REPO_FILES:
+            return False
+    else:
+        if path.name in EXCLUDED_REPO_FILES:
+            return False
+        if any(part in EXCLUDED_REPO_DIRS for part in path.parts):
             return False
     try:
         if path.stat().st_size > MAX_REPO_FILE_BYTES:
