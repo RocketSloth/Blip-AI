@@ -49,26 +49,31 @@ PROFILE_COPY = {
         "title": "On my computer",
         "blurb": "A private AI chat that runs on this machine. Nothing leaves your device except the chats you send to the AI.",
         "icon": "💻",
+        "first_step": "Open a terminal and type: openclaw chat",
     },
     "telegram_bot": {
         "title": "On Telegram",
         "blurb": "Chat with your AI from Telegram, like any other bot. Works on your phone too.",
         "icon": "✈️",
+        "first_step": "Open Telegram and search for your bot by name",
     },
     "whatsapp_bot": {
         "title": "On WhatsApp",
         "blurb": "Talk to your AI from WhatsApp. You'll scan a QR code to link it.",
         "icon": "💬",
+        "first_step": "Open WhatsApp — your bot will appear as a contact",
     },
     "remote_gateway": {
         "title": "On a server",
         "blurb": "Advanced. Headless setup for a VPS or home server.",
         "icon": "🖥️",
+        "first_step": "Run: openclaw gateway status",
     },
     "dev_setup": {
         "title": "For development",
         "blurb": "Advanced. Verbose logging, no background service.",
         "icon": "🧰",
+        "first_step": "Open a terminal and type: openclaw chat",
     },
 }
 
@@ -128,6 +133,37 @@ ENV_COPY = {
 
 
 # ---------------------------------------------------------------------------
+# Friendly install-step labels (technical → plain English)
+# ---------------------------------------------------------------------------
+
+FRIENDLY_STEP_LABELS: dict = {
+    "Install OpenClaw CLI":                    "Installing OpenClaw",
+    "Install node":                            "Installing Node.js",
+    "Install node (required by Telegram bot)": "Installing Node.js",
+    "Install node (required by WhatsApp bot)": "Installing Node.js",
+    "Install ollama":                          "Installing Ollama (local AI runner)",
+    "Set OPENAI_API_KEY":                      "Saving your OpenAI key",
+    "Set ANTHROPIC_API_KEY":                   "Saving your Anthropic key",
+    "Set OPENROUTER_API_KEY":                  "Saving your OpenRouter key",
+    "Set TELEGRAM_BOT_TOKEN":                  "Saving your Telegram token",
+    "Write minimal OpenClaw config":           "Creating your settings file",
+    "Run openclaw onboard (non-interactive)":  "Finishing configuration",
+    "Install OpenClaw Telegram bot plugin":    "Adding Telegram support",
+    "Install OpenClaw WhatsApp bot plugin":    "Adding WhatsApp support",
+    "Install OpenClaw gateway service":        "Setting up background service",
+    "Check gateway status":                    "Checking everything works",
+    "Run openclaw doctor":                     "Running a health check",
+    "Smoke test: Telegram bot":                "Testing your Telegram connection",
+    "Smoke test: WhatsApp bot":                "Testing your WhatsApp connection",
+    "Smoke test: Local terminal / web UI":     "Testing your setup",
+}
+
+
+def _friendly(label: str) -> str:
+    return FRIENDLY_STEP_LABELS.get(label, label)
+
+
+# ---------------------------------------------------------------------------
 # Job management
 # ---------------------------------------------------------------------------
 
@@ -166,7 +202,11 @@ def _run_job(job: Job) -> None:
             return
         if line.startswith("[RUN]") or line.startswith("[DRY-RUN]"):
             label = line.split("] ", 1)[-1]
-            _emit(job, "step_start", {"index": step_index[0], "label": label})
+            _emit(job, "step_start", {
+                "index": step_index[0],
+                "label": label,
+                "friendly_label": _friendly(label),
+            })
             step_index[0] += 1
         else:
             _emit(job, "log", {"text": line})
@@ -260,6 +300,7 @@ def create_app() -> FastAPI:
                 "title": copy["title"],
                 "blurb": copy["blurb"],
                 "icon": copy["icon"],
+                "first_step": copy.get("first_step", ""),
                 "providers": p.provider_choices,
                 "channel": p.channel_id,
                 "service_default": p.install_service_default,
@@ -373,7 +414,7 @@ def create_app() -> FastAPI:
                 "missing_bins": [b.name for b in system.missing_bins],
                 "missing_env": system.missing_env,
             },
-            "steps": [{"label": s.label, "action": s.action} for s in plan.steps],
+            "steps": [{"label": s.label, "action": s.action, "friendly_label": _friendly(s.label)} for s in plan.steps],
             "missing_env": plan.missing_env,
             "config_preview": preview_config(config_fields),
         }

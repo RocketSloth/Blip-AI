@@ -13,21 +13,13 @@
           <span class="logo">🐾</span>
           <span class="brand-text">clawup</span>
         </div>
-        <div class="progress-dots" id="progress-dots">
-          <span class="dot active" data-step="welcome"></span>
-          <span class="dot" data-step="profile"></span>
-          <span class="dot" data-step="provider"></span>
-          <span class="dot" data-step="keys"></span>
-          <span class="dot" data-step="review"></span>
-          <span class="dot" data-step="install"></span>
-          <span class="dot" data-step="done"></span>
-        </div>
+        <div class="step-counter" id="step-counter"></div>
       </header>
 
       <main class="stage" id="stage"></main>
 
       <footer class="footer">
-        <span class="muted">Setup runs on your machine. Nothing is sent anywhere.</span>
+        <span class="muted">Everything runs on your machine. Nothing is stored online.</span>
       </footer>
     </div>
 
@@ -35,102 +27,66 @@
     <!-- Screen templates                                              -->
     <!-- ============================================================ -->
 
-    <template id="tpl-welcome">
-      <section class="screen">
-        <div class="hero">
-          <h1>Let's get OpenClaw running.</h1>
-          <p class="lede">
-            A couple of quick questions and we'll handle the rest.
-            No copy-pasting terminal commands, no config files to edit.
-          </p>
-        </div>
-        <div class="actions">
-          <button class="btn primary big" data-action="next">Get started</button>
-          <button class="btn ghost" data-action="advanced">I know what I'm doing</button>
-        </div>
-      </section>
-    </template>
-
+    <!-- Step 1 of 3 -->
     <template id="tpl-profile">
       <section class="screen">
         <h2>Where do you want to use your AI?</h2>
-        <p class="lede">Pick one. You can add more later.</p>
+        <p class="lede">Pick one. You can always add more later.</p>
         <div class="cards" id="profile-cards"></div>
+        <button class="advanced-toggle" id="advanced-toggle">Show advanced options ↓</button>
       </section>
     </template>
 
+    <!-- Step 2 of 3 -->
     <template id="tpl-provider">
       <section class="screen">
-        <h2>Which AI service will power it?</h2>
-        <p class="lede">You'll need an account with one of these.</p>
+        <h2>Which AI service do you have?</h2>
+        <p class="lede">Pick the one you signed up for. Don't have one yet? OpenAI is the easiest to start with.</p>
         <div class="cards" id="provider-cards"></div>
         <div class="actions">
-          <button class="btn ghost" data-action="back">Back</button>
+          <button class="btn ghost" data-action="back">← Back</button>
         </div>
       </section>
     </template>
 
-    <template id="tpl-keys">
-      <section class="screen">
-        <h2>Paste your keys</h2>
-        <p class="lede" id="keys-lede">We need a few things from you. Click the link, copy the value, paste it here.</p>
-        <div class="fields" id="key-fields"></div>
-        <div class="actions">
-          <button class="btn ghost" data-action="back">Back</button>
-          <button class="btn primary" id="keys-next" data-action="review">Continue</button>
-        </div>
-      </section>
-    </template>
-
-    <template id="tpl-review">
-      <section class="screen">
-        <h2>Ready when you are.</h2>
-        <p class="lede">Here's what will happen:</p>
-        <div class="review-panel" id="review-panel">
-          <div class="spinner"></div>
-        </div>
-        <div class="actions">
-          <button class="btn ghost" data-action="back">Back</button>
-          <button class="btn primary big" id="install-btn" data-action="install" disabled>Install</button>
-        </div>
-      </section>
-    </template>
-
+    <!-- Step 3 of 3 -->
     <template id="tpl-install">
       <section class="screen">
-        <h2>Installing…</h2>
-        <p class="lede">This usually takes a minute or two.</p>
+        <div class="install-header">
+          <h2>Setting everything up…</h2>
+          <p class="install-status" id="install-status">This usually takes a minute or two. Hang tight.</p>
+        </div>
         <ol class="steps" id="install-steps"></ol>
         <details class="log-details">
-          <summary>Show detailed log</summary>
+          <summary>Show technical log</summary>
           <pre class="log" id="install-log"></pre>
         </details>
       </section>
     </template>
 
+    <!-- Done -->
     <template id="tpl-done">
       <section class="screen">
         <div class="done-badge" id="done-badge">✓</div>
-        <h1 id="done-title">You're all set.</h1>
-        <p class="lede" id="done-lede">Your AI is ready to chat.</p>
+        <h1 id="done-title">You're all set!</h1>
+        <p class="lede" id="done-lede">Your AI is installed and ready to use.</p>
+        <div class="done-first-step" id="done-first-step"></div>
         <div class="check-list" id="check-list"></div>
-        <div class="next-steps" id="next-steps"></div>
         <div class="actions">
-          <button class="btn primary big" id="finish-btn" data-action="finish">Finish</button>
-          <button class="btn ghost" id="again-btn" data-action="restart">Set up another</button>
+          <button class="btn primary big" id="finish-btn" data-action="finish">Close setup</button>
         </div>
       </section>
     </template>
 
+    <!-- Failed -->
     <template id="tpl-failed">
       <section class="screen">
         <div class="done-badge failed">!</div>
-        <h1>Something got stuck.</h1>
+        <h1>Something went wrong.</h1>
         <p class="lede" id="failed-reason"></p>
-        <div class="check-list" id="failed-checks"></div>
+        <p class="failed-hint">Open a terminal and run <code>openclaw doctor</code> for more help.</p>
         <div class="actions">
           <button class="btn primary" data-action="restart">Try again</button>
-          <button class="btn ghost" data-action="finish">Close</button>
         </div>
       </section>
     </template>

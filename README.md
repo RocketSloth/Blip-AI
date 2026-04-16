@@ -121,6 +121,36 @@ Imported GitHub repos also persist:
 `-- requirements.txt
 ```
 
+## clawup — OpenClaw Setup Wizard
+
+`clawup` is a guided setup tool that installs and configures OpenClaw without any terminal commands. It detects what's already on your machine, installs only what's missing, and walks through the whole thing in three steps.
+
+### For non-technical users (browser wizard)
+
+Run this once. It installs everything it needs, then opens the wizard in your browser:
+
+```bash
+python clawup-bootstrap.py
+```
+
+You'll be guided through:
+
+1. **Where do you want to use your AI?** — on your computer, Telegram, or WhatsApp
+2. **Which AI service do you have?** — pick OpenAI, Anthropic, OpenRouter, or local (Ollama)
+3. **Setting everything up** — installs OpenClaw, saves your key, configures everything, runs a health check
+
+### For terminal users
+
+```bash
+python clawup.py serve          # same wizard, opens browser
+python clawup.py                # interactive terminal version
+python clawup.py --dry-run      # preview what will be installed
+python clawup.py --fix          # run openclaw doctor only
+python clawup.py --help         # all options
+```
+
+---
+
 ## Install And Run
 
 Set your API key:
