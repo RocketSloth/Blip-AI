@@ -1,456 +1,560 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Blip Local Agent Platform</title>
+    <title>Blip</title>
     <style>
       :root {
         color-scheme: dark;
         --bg: #08111f;
-        --panel: rgba(11, 19, 33, 0.92);
+        --panel: rgba(11, 19, 33, 0.94);
         --panel-strong: #10213a;
-        --edge: rgba(121, 142, 180, 0.25);
+        --edge: rgba(121, 142, 180, 0.22);
+        --edge-strong: rgba(121, 142, 180, 0.45);
         --text: #eef4ff;
         --muted: #9eb0ca;
         --accent: #4ade80;
+        --accent-dark: #22c55e;
         --accent-soft: rgba(74, 222, 128, 0.14);
+        --info: #7dd3fc;
+        --info-soft: rgba(125, 211, 252, 0.12);
         --warn: #fbbf24;
         --warn-soft: rgba(251, 191, 36, 0.16);
         --danger: #fb7185;
         --danger-soft: rgba(251, 113, 133, 0.14);
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; }
+
+      html, body { height: 100%; margin: 0; }
 
       body {
-        margin: 0;
-        font-family: "Segoe UI", sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         color: var(--text);
         background:
-          radial-gradient(circle at top, rgba(74, 222, 128, 0.11), transparent 32%),
-          radial-gradient(circle at 85% 18%, rgba(125, 211, 252, 0.12), transparent 24%),
-          linear-gradient(180deg, #07111f 0%, #0b1424 48%, #09111d 100%);
+          radial-gradient(circle at top left, rgba(74, 222, 128, 0.08), transparent 40%),
+          radial-gradient(circle at 85% 18%, rgba(125, 211, 252, 0.1), transparent 30%),
+          linear-gradient(180deg, #07111f 0%, #0b1424 50%, #09111d 100%);
+        min-height: 100vh;
+        line-height: 1.5;
       }
 
-      a {
-        color: #9bd7ff;
-        text-decoration: none;
+      .app {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem 4rem;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
       }
 
-      button {
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 800;
+        font-size: 1.1rem;
+        letter-spacing: 0.02em;
+      }
+
+      .logo { font-size: 1.4rem; }
+
+      .status-pill {
+        font-size: 0.82rem;
+        color: var(--muted);
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        padding: 0.3rem 0.7rem;
+        border-radius: 999px;
+      }
+
+      .hero { margin: 1rem 0 2.2rem; }
+
+      h1 {
+        font-size: 2rem;
+        margin: 0 0 0.5rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+
+      h2 {
+        font-size: 1.2rem;
+        margin: 0 0 0.8rem;
+        font-weight: 700;
+      }
+
+      .lede {
+        color: var(--muted);
+        font-size: 1rem;
+        margin: 0;
+        max-width: 54ch;
+      }
+
+      .section { margin-bottom: 2rem; }
+
+      .section-title {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 0.8rem;
+      }
+
+      .section-title .count {
+        color: var(--muted);
+        font-size: 0.88rem;
+        font-weight: 500;
+      }
+
+      .cards { display: grid; gap: 0.8rem; }
+
+      .card {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1.1rem 1.2rem;
+        border-radius: 14px;
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        text-align: left;
+        color: inherit;
+        font: inherit;
+        transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      }
+
+      .card.clickable { cursor: pointer; }
+
+      .card.clickable:hover {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        transform: translateY(-1px);
+      }
+
+      .card-icon {
+        font-size: 1.7rem;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+
+      .card-body { flex: 1; min-width: 0; }
+
+      .card-title {
+        font-weight: 700;
+        font-size: 1.02rem;
+        margin: 0 0 0.25rem;
+      }
+
+      .card-blurb {
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin: 0;
+        word-wrap: break-word;
+      }
+
+      .btn {
         border: none;
         border-radius: 10px;
-        padding: 0.72rem 1rem;
+        padding: 0.7rem 1.1rem;
         font: inherit;
         font-weight: 700;
         cursor: pointer;
-        color: #08212f;
-        background: linear-gradient(135deg, #5eead4, #7dd3fc);
+        transition: transform 0.08s, background 0.15s, opacity 0.15s;
       }
 
-      button.secondary {
-        background: linear-gradient(135deg, #dbeafe, #cbd5e1);
-        color: #122236;
+      .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+      .btn.primary { background: var(--accent); color: #08212f; }
+      .btn.primary:hover:not(:disabled) { background: var(--accent-dark); transform: translateY(-1px); }
+
+      .btn.ghost {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid var(--edge);
+      }
+      .btn.ghost:hover:not(:disabled) { color: var(--text); border-color: var(--edge-strong); }
+
+      .btn.danger {
+        background: transparent;
+        color: var(--danger);
+        border: 1px solid rgba(251, 113, 133, 0.4);
+      }
+      .btn.danger:hover:not(:disabled) { background: var(--danger-soft); }
+
+      .btn.small { padding: 0.5rem 0.85rem; font-size: 0.88rem; }
+
+      .actions {
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        margin-top: 0.9rem;
       }
 
-      button.ghost {
-        color: var(--text);
-        background: rgba(148, 163, 184, 0.12);
-        border: 1px solid rgba(148, 163, 184, 0.24);
+      .inline-form {
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 14px;
+        padding: 1.1rem 1.2rem;
+        margin-top: 0.8rem;
       }
 
-      button.danger {
-        color: #fff1f2;
-        background: linear-gradient(135deg, #fb7185, #ef4444);
-      }
-
-      button:disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
-      }
-
-      input[type="number"],
-      input[type="text"],
-      textarea {
-        padding: 0.65rem 0.72rem;
-        border-radius: 10px;
-        border: 1px solid rgba(148, 163, 184, 0.32);
-        background: #0a1322;
+      .inline-form input[type="text"],
+      .inline-form textarea {
+        width: 100%;
+        background: #07111f;
+        border: 1px solid var(--edge);
+        border-radius: 8px;
+        padding: 0.7rem 0.9rem;
         color: var(--text);
         font: inherit;
       }
 
-      input[type="number"] {
-        width: 120px;
-      }
+      .inline-form textarea { font-family: inherit; resize: vertical; min-height: 80px; }
 
-      textarea {
-        width: 100%;
-        resize: vertical;
-      }
+      .inline-form input[type="text"]:focus,
+      .inline-form textarea:focus { outline: none; border-color: var(--accent); }
 
-      .page {
-        max-width: 1240px;
-        margin: 0 auto;
-        padding: 2rem 1.25rem 3rem;
-      }
-
-      .hero {
-        margin-bottom: 1.25rem;
-        display: grid;
-        gap: 0.8rem;
-      }
-
-      .hero h1 {
-        margin: 0;
-        font-size: clamp(2rem, 5vw, 3.6rem);
-      }
-
-      .hero p {
-        margin: 0;
-        color: var(--muted);
-        max-width: 920px;
-        line-height: 1.6;
-      }
-
-      .panel {
+      .project {
         background: var(--panel);
         border: 1px solid var(--edge);
-        border-radius: 18px;
-        padding: 1rem 1.1rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 20px 50px rgba(1, 8, 18, 0.3);
-      }
-
-      .toolbar,
-      .inline-actions,
-      .chip-row,
-      .artifact-row,
-      .meta-grid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.65rem;
-        align-items: center;
-      }
-
-      .meta-grid {
-        gap: 1rem;
-        align-items: start;
-      }
-
-      .grid {
-        display: grid;
-        gap: 1rem;
-      }
-
-      .two-col {
-        grid-template-columns: 1.35fr 1fr;
-      }
-
-      .three-col {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      @media (max-width: 980px) {
-        .two-col,
-        .three-col {
-          grid-template-columns: 1fr;
-        }
-      }
-
-      .muted {
-        color: var(--muted);
-      }
-
-      .status-line {
-        font-size: 0.96rem;
-        color: var(--muted);
-      }
-
-      .project-card,
-      .bucket-card,
-      .attempt,
-      .gate,
-      .info-box {
-        border-radius: 15px;
-        border: 1px solid rgba(114, 136, 174, 0.22);
-        background: rgba(10, 19, 35, 0.94);
-      }
-
-      .project-card,
-      .bucket-card {
-        padding: 1rem;
-        margin-top: 0.9rem;
-      }
-
-      .project-card:first-child,
-      .bucket-card:first-child {
-        margin-top: 0;
-      }
-
-      .card-head {
-        display: flex;
-        gap: 1rem;
-        align-items: start;
-        justify-content: space-between;
-        flex-wrap: wrap;
-      }
-
-      .card-title {
-        display: grid;
-        gap: 0.35rem;
-        max-width: 760px;
-      }
-
-      .chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 0.28rem 0.58rem;
-        border-radius: 999px;
-        font-size: 0.78rem;
-        border: 1px solid rgba(126, 153, 191, 0.25);
-        background: rgba(19, 33, 54, 0.9);
-      }
-
-      .chip.score {
-        color: #071521;
-        background: linear-gradient(135deg, #fbbf24, #fde68a);
-        border: none;
-      }
-
-      .chip.pass {
-        background: var(--accent-soft);
-        color: #b7f7ca;
-      }
-
-      .chip.fail {
-        background: var(--danger-soft);
-        color: #fecdd3;
-      }
-
-      .chip.warn {
-        background: var(--warn-soft);
-        color: #fde68a;
-      }
-
-      .chip.off {
-        background: rgba(148, 163, 184, 0.14);
-        color: #dbeafe;
-      }
-
-      .subgrid {
-        display: grid;
-        gap: 0.9rem;
-        margin-top: 1rem;
-      }
-
-      .info-box,
-      .gate,
-      .attempt {
-        padding: 0.85rem 0.9rem;
-      }
-
-      .label {
-        display: block;
-        color: var(--muted);
-        font-size: 0.82rem;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin-bottom: 0.22rem;
-      }
-
-      .gate-list,
-      .attempt-list,
-      .artifact-list,
-      .task-list {
-        display: grid;
-        gap: 0.65rem;
-        margin-top: 0.8rem;
-      }
-
-      .gate strong,
-      .attempt strong,
-      .task strong {
-        display: block;
-        margin-bottom: 0.25rem;
-      }
-
-      .section {
-        border: 1px solid rgba(99, 125, 164, 0.22);
         border-radius: 14px;
-        background: rgba(11, 19, 35, 0.84);
-        margin-top: 0.8rem;
+        padding: 1.1rem 1.2rem;
+        transition: border-color 0.15s;
+      }
+
+      .project + .project { margin-top: 0.8rem; }
+
+      .project-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+
+      .project-icon {
+        font-size: 1.7rem;
+        line-height: 1;
+        flex-shrink: 0;
+      }
+
+      .project-main { flex: 1; min-width: 0; }
+
+      .project-name {
+        font-weight: 700;
+        font-size: 1.05rem;
+        margin: 0 0 0.2rem;
+        word-wrap: break-word;
+      }
+
+      .project-status {
+        font-size: 0.9rem;
+        color: var(--muted);
+        margin: 0;
+      }
+
+      .status-dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--muted);
+        margin-right: 0.4rem;
+        vertical-align: middle;
+      }
+
+      .status-dot.ok { background: var(--accent); }
+      .status-dot.warn { background: var(--warn); }
+      .status-dot.err { background: var(--danger); }
+      .status-dot.info { background: var(--info); }
+
+      .project-details {
+        margin-top: 1rem;
+        padding-top: 0.9rem;
+        border-top: 1px solid var(--edge);
+        display: none;
+        font-size: 0.92rem;
+      }
+
+      .project-details.open { display: block; }
+
+      .detail-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.35rem 0;
+        border-bottom: 1px dashed var(--edge);
+      }
+
+      .detail-row:last-child { border-bottom: none; }
+
+      .detail-label { color: var(--muted); flex-shrink: 0; }
+      .detail-value { text-align: right; word-break: break-word; }
+
+      .toggle-details {
+        background: none;
+        border: none;
+        color: var(--muted);
+        font: inherit;
+        font-size: 0.88rem;
+        cursor: pointer;
+        padding: 0.2rem 0;
+        margin-top: 0.5rem;
+      }
+
+      .toggle-details:hover { color: var(--text); }
+
+      .empty {
+        background: var(--panel);
+        border: 1px dashed var(--edge);
+        border-radius: 14px;
+        padding: 1.5rem;
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .approval-banner {
+        background: var(--warn-soft);
+        border: 1px solid rgba(251, 191, 36, 0.35);
+        border-radius: 14px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .approval-banner h2 {
+        color: var(--warn);
+        margin: 0 0 0.4rem;
+        font-size: 1rem;
+      }
+
+      .approval-item {
+        background: rgba(8, 17, 31, 0.6);
+        border: 1px solid var(--edge);
+        border-radius: 10px;
+        padding: 0.8rem 1rem;
+        margin-top: 0.6rem;
+      }
+
+      .approval-item p { margin: 0; font-size: 0.92rem; }
+      .approval-item .muted { color: var(--muted); font-size: 0.85rem; }
+
+      .toast {
+        position: fixed;
+        bottom: 1.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--panel-strong);
+        border: 1px solid var(--edge-strong);
+        color: var(--text);
+        padding: 0.7rem 1.2rem;
+        border-radius: 999px;
+        font-size: 0.92rem;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+        z-index: 50;
+      }
+
+      .toast.visible { opacity: 1; }
+
+      .advanced {
+        margin-top: 2rem;
+        background: var(--panel);
+        border: 1px solid var(--edge);
+        border-radius: 14px;
         overflow: hidden;
       }
 
-      .section summary {
+      .advanced > summary {
         list-style: none;
         cursor: pointer;
+        padding: 1rem 1.2rem;
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 0.95rem;
         display: flex;
-        justify-content: space-between;
-        gap: 1rem;
         align-items: center;
-        padding: 0.9rem 1rem;
+        gap: 0.5rem;
       }
 
-      .section summary::-webkit-details-marker {
-        display: none;
+      .advanced > summary::-webkit-details-marker { display: none; }
+      .advanced > summary::before { content: "⚙"; font-size: 1.1rem; }
+
+      .advanced .adv-body {
+        border-top: 1px solid var(--edge);
+        padding: 1rem 1.2rem;
       }
 
-      .section-body {
-        border-top: 1px solid rgba(99, 125, 164, 0.18);
-        padding: 0 1rem 1rem;
+      .adv-group { margin-bottom: 1.4rem; }
+      .adv-group:last-child { margin-bottom: 0; }
+
+      .adv-group h3 { margin: 0 0 0.4rem; font-size: 0.98rem; }
+      .adv-group p { margin: 0 0 0.8rem; color: var(--muted); font-size: 0.9rem; }
+
+      .adv-group input[type="number"],
+      .adv-group input[type="text"] {
+        background: #07111f;
+        border: 1px solid var(--edge);
+        border-radius: 8px;
+        padding: 0.55rem 0.75rem;
+        color: var(--text);
+        font: inherit;
       }
 
-      .checkbox {
-        display: inline-flex;
+      .adv-group input[type="number"] { width: 110px; }
+
+      .row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+
+      .lane-row {
+        display: grid;
+        grid-template-columns: auto 1fr 2fr;
+        gap: 0.6rem;
         align-items: center;
-        gap: 0.45rem;
+        padding: 0.45rem 0;
+        border-bottom: 1px dashed var(--edge);
+      }
+
+      .lane-row:last-child { border-bottom: none; }
+
+      .lane-row label { font-size: 0.88rem; color: var(--muted); display: flex; gap: 0.35rem; align-items: center; }
+
+      .footer {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        text-align: center;
         color: var(--muted);
-        font-size: 0.92rem;
+        font-size: 0.85rem;
       }
 
-      .empty {
-        color: var(--muted);
-        padding: 0.4rem 0;
-      }
-
-      .task {
-        border-radius: 14px;
-        border: 1px solid rgba(114, 136, 174, 0.22);
-        background: rgba(10, 19, 35, 0.94);
-        padding: 0.85rem 0.9rem;
-      }
-
-      .mono {
-        font-family: Consolas, "SFMono-Regular", monospace;
-        font-size: 0.92rem;
-        word-break: break-word;
-      }
-
-      .plan {
-        margin: 0;
-        white-space: pre-wrap;
-        line-height: 1.55;
+      @media (max-width: 520px) {
+        .app { padding: 1rem 1rem 3rem; }
+        h1 { font-size: 1.6rem; }
+        .lane-row { grid-template-columns: 1fr; }
       }
     </style>
   </head>
   <body>
-    <div class="page">
-      <div class="hero">
-        <h1>Blip Local Agent Platform</h1>
-        <p>
-          Blip now runs as a local-first repo engineering platform. It keeps the lane-based MVP
-          factory as a built-in specialist recipe, but adds workspaces, isolated runs, approvals,
-          skills, recipes, and a daemon-style control plane for autonomous repo work.
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="logo">⚡</span>
+          <span>blip</span>
+        </div>
+        <span class="status-pill" id="status-pill">Loading…</span>
+      </header>
+
+      <section class="hero">
+        <h1>Your AI coding buddy.</h1>
+        <p class="lede">
+          Hand Blip a GitHub repo or a rough idea. It reads the code, plans an improvement,
+          and shows you the changes before anything touches your project.
         </p>
-      </div>
+      </section>
 
-      <div class="panel toolbar">
-        <button id="runNow">Research new lane-fit ideas</button>
-        <button id="organizeNow" class="secondary">Organize bucket</button>
-        <label class="checkbox">Heartbeat seconds <input id="heartbeat" type="number" min="30" /></label>
-        <button id="saveHeartbeat" class="ghost">Save heartbeat</button>
-        <span id="status" class="status-line"></span>
-      </div>
+      <!-- Approvals banner (only shown when items exist) -->
+      <section id="approvals-banner" class="approval-banner" style="display: none;">
+        <h2>⏳ Waiting for your review</h2>
+        <p class="muted" style="font-size: 0.9rem; margin: 0;">
+          Blip finished some work. Look it over and decide whether to keep it.
+        </p>
+        <div id="approvals-list"></div>
+      </section>
 
-      <details class="panel section" id="githubImportPanel">
-        <summary><strong>Import from GitHub</strong> <span class="muted">Clone a repo, digest the codebase, and queue targeted AI improvements</span></summary>
-        <div class="section-body">
-          <p class="muted">Paste a public GitHub repo URL. Blip will clone it, run a full-repo digest immediately, save an AI execution brief, and make the project available for iterative improvement.</p>
-          <div class="toolbar" style="margin-bottom: 0.8rem;">
-            <input type="text" id="repoUrl" placeholder="https://github.com/owner/repo" style="flex: 1; min-width: 280px;" />
-            <button id="importRepo">Import repo</button>
+      <!-- Start something new -->
+      <section class="section">
+        <h2>Start something new</h2>
+        <div class="cards">
+          <button class="card clickable" id="card-import" type="button">
+            <span class="card-icon">🐙</span>
+            <span class="card-body">
+              <p class="card-title">Import a GitHub repo</p>
+              <p class="card-blurb">Paste a repo link. Blip clones it and gets ready to improve it.</p>
+            </span>
+          </button>
+
+          <div id="import-form" class="inline-form" style="display: none;">
+            <label class="card-title" for="repoUrl">GitHub repo URL</label>
+            <p class="card-blurb" style="margin: 0.3rem 0 0.8rem;">
+              Example: <code>https://github.com/your-name/your-repo</code>
+            </p>
+            <input type="text" id="repoUrl" placeholder="https://github.com/owner/repo" />
+            <div class="actions">
+              <button class="btn primary" id="do-import">Import repo</button>
+              <button class="btn ghost" id="cancel-import">Cancel</button>
+            </div>
           </div>
-          <span id="importStatus" class="status-line muted"></span>
+
+          <button class="card clickable" id="card-ideas" type="button">
+            <span class="card-icon">💡</span>
+            <span class="card-body">
+              <p class="card-title">Find me some ideas</p>
+              <p class="card-blurb">Blip researches small business tools it can build for you.</p>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Your projects -->
+      <section class="section">
+        <div class="section-title">
+          <h2>Your projects</h2>
+          <span class="count" id="project-count"></span>
+        </div>
+        <div id="projects-list"></div>
+      </section>
+
+      <!-- Project ideas to try -->
+      <section class="section" id="ideas-section" style="display: none;">
+        <div class="section-title">
+          <h2>Ideas Blip found</h2>
+          <span class="count" id="ideas-count"></span>
+        </div>
+        <p class="lede" style="font-size: 0.92rem; margin-bottom: 0.8rem;">
+          Pick one to start working on, or clear ones you aren't interested in.
+        </p>
+        <div id="ideas-list"></div>
+      </section>
+
+      <!-- Advanced -->
+      <details class="advanced" id="advanced">
+        <summary>Advanced settings</summary>
+        <div class="adv-body">
+          <div class="adv-group">
+            <h3>How often Blip checks projects</h3>
+            <p>Auto-improve runs on enabled projects on this schedule.</p>
+            <div class="row">
+              <input type="number" id="heartbeat" min="30" />
+              <span class="muted" style="font-size: 0.9rem;">seconds</span>
+              <button class="btn ghost small" id="saveHeartbeat">Save</button>
+            </div>
+          </div>
+
+          <div class="adv-group">
+            <h3>What kind of projects Blip can work on</h3>
+            <p>Turn on the project types you want Blip to consider when finding ideas.</p>
+            <div id="lanesForm"></div>
+            <div class="row" style="margin-top: 0.6rem;">
+              <button class="btn ghost small" id="saveLanes">Save project types</button>
+            </div>
+          </div>
         </div>
       </details>
 
-      <details class="panel section" id="projectTypesPanel">
-        <summary><strong>Project types (lanes)</strong> <span class="muted">Choose which idea types agents can work on</span></summary>
-        <div class="section-body">
-          <p class="muted">Enable or disable each project type and optionally edit its label and keywords. Research and promotion only use enabled types.</p>
-          <div id="lanesForm"></div>
-          <div class="toolbar" style="margin-top: 0.8rem;">
-            <button id="saveLanes">Save project types</button>
-            <span id="lanesStatus" class="status-line muted"></span>
-          </div>
-        </div>
-      </details>
-
-      <div class="grid two-col">
-        <div class="panel">
-          <h2>Workspaces</h2>
-          <p class="muted">
-            Every imported repo or generated project becomes a workspace with its own recipe,
-            branch state, mission summary, and approval queue.
-          </p>
-          <div id="workspaces"></div>
-        </div>
-
-        <div class="panel">
-          <h2>Runs</h2>
-          <p class="muted">
-            Runs execute in isolated branches or worktrees. Approve a run before its changes land
-            in the main workspace.
-          </p>
-          <div id="runs"></div>
-        </div>
-      </div>
-
-      <div class="grid two-col">
-        <div class="panel">
-          <h2>Approvals</h2>
-          <div id="approvals"></div>
-        </div>
-
-        <div class="panel">
-          <h2>Skills & Recipes</h2>
-          <div id="skillsRecipes"></div>
-        </div>
-      </div>
-
-      <div class="grid two-col">
-        <div class="panel">
-          <h2>Active MVP Factory</h2>
-          <p class="muted">
-            Heartbeat runs only projects with auto-run enabled. Imported repositories keep a durable AI repo digest so improvement cycles can focus on specific code and workflow gaps instead of generic cleanup.
-          </p>
-          <div id="activeProjects"></div>
-        </div>
-
-        <div class="panel">
-          <h2>System Status</h2>
-          <p class="status-line" id="agentInfo">Loading...</p>
-          <div id="lastResult" class="artifact-list"></div>
-        </div>
-      </div>
-
-      <div class="grid two-col">
-        <div class="panel">
-          <h3>Organized Bucket</h3>
-          <div id="organizedSections"></div>
-        </div>
-
-        <div class="panel">
-          <h3>Bucket Ideas</h3>
-          <p class="muted">
-            Only ideas that qualify into one of the supported lanes can be promoted into active MVP work.
-          </p>
-          <div id="projects"></div>
-        </div>
-      </div>
+      <div class="footer">Blip runs on your computer. Your code never leaves without your say-so.</div>
     </div>
 
-    <script>
-      const openSections = new Set(JSON.parse(localStorage.getItem('openSections') || '[]'));
+    <div class="toast" id="toast"></div>
 
-      function saveOpenSections() {
-        localStorage.setItem('openSections', JSON.stringify([...openSections]));
-      }
+    <script>
+      // ---------- helpers ----------
+
+      function $(id) { return document.getElementById(id); }
 
       function escapeHtml(value) {
         return String(value ?? '')
@@ -464,910 +568,390 @@
       async function fetchJson(url, options) {
         const response = await fetch(url, options);
         const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.detail || 'Request failed');
-        }
+        if (!response.ok) throw new Error(data.detail || 'Request failed');
         return data;
       }
 
-      function formatStatus(data) {
-        const activeProjects = data.active_projects || [];
-        const workspaces = data.workspaces || [];
-        const approvals = data.approvals || [];
-        const recentRuns = data.recent_runs || [];
-        const usableCount = activeProjects.filter((project) => project.stage === 'usable_mvp' || project.stage === 'completed').length;
-        const stalledCount = activeProjects.filter((project) => project.stage === 'stalled').length;
-        const autoProjects = activeProjects.filter((project) => project.auto_run).length;
-        const importedProjects = activeProjects.filter((project) => project.source_type === 'github').length;
-
-        return [
-          `Last run: ${data.last_run || 'not yet'}`,
-          `Workspaces: ${workspaces.length}`,
-          `Recent runs: ${recentRuns.length}`,
-          `Pending approvals: ${approvals.filter((item) => item.status === 'pending').length}`,
-          `Bucket ideas: ${(data.projects || []).length}`,
-          `Active projects: ${activeProjects.length}`,
-          `GitHub imports: ${importedProjects}`,
-          `Usable MVPs: ${usableCount}`,
-          `Stalled: ${stalledCount}`,
-          `Auto-run enabled: ${autoProjects}`
-        ].join(' | ');
+      let toastTimer = null;
+      function toast(message) {
+        const el = $('toast');
+        el.textContent = message;
+        el.classList.add('visible');
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove('visible'), 2400);
       }
 
-      function renderLastResult(result) {
-        const container = document.getElementById('lastResult');
-        container.innerHTML = '';
-
-        if (!result) {
-          container.innerHTML = '<div class="info-box muted">No pipeline activity recorded yet.</div>';
-          return;
+      async function action(url, options, pending, done) {
+        toast(pending);
+        try {
+          const data = await fetchJson(url, options);
+          toast(done);
+          await fetchState();
+          return data;
+        } catch (error) {
+          toast(error.message || 'Something went wrong');
+          throw error;
         }
-
-        const entries = [];
-        if (result.research) {
-          entries.push(`Research added ${(result.research.added || []).length} ideas.`);
-        }
-        if (result.organizer) {
-          entries.push(`Organizer touched ${(result.organizer.organized_count || 0)} bucket ideas.`);
-        }
-        if (result.project_heartbeat) {
-          entries.push(`Heartbeat processed ${result.project_heartbeat.projects_processed || 0} active projects.`);
-        }
-        if (result.repo_digest) {
-          entries.push(`Repo digest updated: ${result.repo_digest.summary || 'AI improvement plan regenerated.'}`);
-        }
-        if (result.deleted_project_id) {
-          entries.push(`Deleted project ${result.deleted_title || result.deleted_project_id}.`);
-        }
-        if (result.deleted_idea_id) {
-          entries.push(`Deleted idea ${result.deleted_title || result.deleted_idea_id}.`);
-        }
-        if (result.decision) {
-          entries.push(`Last direct project decision: ${result.decision}.`);
-        }
-        if (result.message) {
-          entries.push(result.message);
-        }
-        if (!entries.length) {
-          entries.push('Latest response captured without a summary.');
-        }
-
-        container.innerHTML = entries.map((entry) => `<div class="info-box">${escapeHtml(entry)}</div>`).join('');
       }
 
-      function renderWorkspaces(workspaces) {
-        const container = document.getElementById('workspaces');
-        container.innerHTML = '';
-        if (!workspaces.length) {
-          container.innerHTML = '<p class="empty">No workspaces yet.</p>';
-          return;
+      // ---------- friendly status ----------
+
+      // Translate noisy backend fields into a single plain-English status.
+      function projectStatus(project) {
+        if (project.pending_approval_id) {
+          return { dot: 'warn', text: 'Waiting for your review', icon: '⏳' };
         }
-
-        workspaces.forEach((workspace) => {
-          const card = document.createElement('div');
-          card.className = 'project-card';
-          card.innerHTML = `
-            <div class="card-head">
-              <div class="card-title">
-                <strong>${escapeHtml(workspace.title)}</strong>
-                <div class="chip-row">
-                  <span class="chip">${escapeHtml(workspace.recipe_id)}</span>
-                  <span class="chip">${escapeHtml(workspace.source_type)}</span>
-                  <span class="chip ${workspace.pending_approval_id ? 'warn' : 'off'}">${workspace.pending_approval_id ? 'approval pending' : 'no approval pending'}</span>
-                </div>
-                <div class="muted">${escapeHtml(workspace.mission_summary || 'No mission summary yet')}</div>
-              </div>
-              <div class="inline-actions">
-                <button data-workspace-run="${escapeHtml(workspace.id)}">Start run</button>
-                <button class="ghost" data-workspace-yolo="${escapeHtml(workspace.id)}">YOLO run</button>
-              </div>
-            </div>
-            <div class="subgrid">
-              <div class="grid three-col">
-                <div class="info-box">
-                  <span class="label">Workspace path</span>
-                  <div class="mono">${escapeHtml(workspace.workspace_path || '')}</div>
-                </div>
-                <div class="info-box">
-                  <span class="label">Branch state</span>
-                  <div>${escapeHtml(workspace.current_branch || 'main')}</div>
-                  <div class="muted">Default: ${escapeHtml(workspace.default_branch || 'main')}</div>
-                </div>
-                <div class="info-box">
-                  <span class="label">Digest summary</span>
-                  <div>${escapeHtml(workspace.last_digest_summary || 'No digest summary recorded')}</div>
-                </div>
-              </div>
-            </div>
-          `;
-          container.appendChild(card);
-        });
-
-        container.querySelectorAll('[data-workspace-run]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            await postAndRefresh(
-              `/api/workspaces/${encodeURIComponent(button.dataset.workspaceRun)}/runs`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ yolo: false })
-              },
-              'Starting isolated run...',
-              'Run started'
-            );
-          });
-        });
-
-        container.querySelectorAll('[data-workspace-yolo]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            await postAndRefresh(
-              `/api/workspaces/${encodeURIComponent(button.dataset.workspaceYolo)}/runs`,
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ yolo: true })
-              },
-              'Launching YOLO run...',
-              'YOLO run started'
-            );
-          });
-        });
+        const stage = (project.stage || '').toLowerCase();
+        const validation = (project.validation_status || '').toLowerCase();
+        if (stage === 'completed' || stage === 'usable_mvp') {
+          return { dot: 'ok', text: 'Ready to use', icon: '✅' };
+        }
+        if (stage === 'stalled' || validation === 'failed') {
+          return { dot: 'err', text: project.stalled_reason || 'Needs a nudge', icon: '⚠️' };
+        }
+        if (project.auto_run) {
+          return { dot: 'info', text: 'Auto-improving', icon: '🔄' };
+        }
+        if (stage === 'scaffolded' || stage === 'in_progress') {
+          return { dot: 'info', text: 'Getting started', icon: '✨' };
+        }
+        if (project.source_type === 'github') {
+          return { dot: 'info', text: 'Ready to improve', icon: '🐙' };
+        }
+        return { dot: 'info', text: 'Ready', icon: '📦' };
       }
 
-      function renderRuns(runs) {
-        const container = document.getElementById('runs');
-        container.innerHTML = '';
-        if (!runs.length) {
-          container.innerHTML = '<p class="empty">No runs yet.</p>';
-          return;
-        }
-        container.innerHTML = runs.map((run) => `
-          <div class="attempt">
-            <strong>${escapeHtml(run.id)} | ${escapeHtml(run.status)}</strong>
-            <div>${escapeHtml(run.summary || 'No run summary yet')}</div>
-            <div class="muted">${escapeHtml(run.recipe_id || '')} | ${escapeHtml(run.branch_name || 'no branch')}</div>
-            <div class="muted">${escapeHtml(run.created_at || '')}</div>
-          </div>
-        `).join('');
-      }
+      // ---------- render: approvals ----------
 
       function renderApprovals(approvals) {
-        const container = document.getElementById('approvals');
-        container.innerHTML = '';
-        if (!approvals.length) {
-          container.innerHTML = '<p class="empty">No approvals pending.</p>';
-          return;
-        }
-        approvals.forEach((approval) => {
-          const card = document.createElement('div');
-          card.className = 'attempt';
-          card.innerHTML = `
-            <strong>${escapeHtml(approval.status)} | ${escapeHtml(approval.run_id)}</strong>
-            <div>${escapeHtml(approval.summary || 'No approval summary')}</div>
-            <div class="muted">${escapeHtml(approval.diff_summary || 'No diff summary')}</div>
-            <div class="muted">${escapeHtml((approval.changed_files || []).join(', ') || 'No changed files recorded')}</div>
-            ${approval.status === 'pending' ? `
-              <div class="toolbar" style="margin-top: 0.7rem;">
-                <button data-approve-run="${escapeHtml(approval.run_id)}">Approve</button>
-                <button class="danger" data-reject-run="${escapeHtml(approval.run_id)}">Reject</button>
+        const pending = (approvals || []).filter(a => a.status === 'pending');
+        const banner = $('approvals-banner');
+        const list = $('approvals-list');
+        if (!pending.length) { banner.style.display = 'none'; return; }
+        banner.style.display = 'block';
+        list.innerHTML = pending.map(a => {
+          const filesText = (a.changed_files || []).length
+            ? `${a.changed_files.length} file${a.changed_files.length === 1 ? '' : 's'} changed`
+            : 'No file changes recorded';
+          return `
+            <div class="approval-item">
+              <p><strong>${escapeHtml(a.summary || 'Improvement ready')}</strong></p>
+              <p class="muted">${escapeHtml(filesText)}${a.diff_summary ? ' · ' + escapeHtml(a.diff_summary) : ''}</p>
+              <div class="actions">
+                <button class="btn primary small" data-approve="${escapeHtml(a.run_id)}">Keep changes</button>
+                <button class="btn danger small" data-reject="${escapeHtml(a.run_id)}">Throw away</button>
               </div>
-            ` : ''}
+            </div>
           `;
-          container.appendChild(card);
-        });
+        }).join('');
 
-        container.querySelectorAll('[data-approve-run]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            await postAndRefresh(
-              `/api/runs/${encodeURIComponent(button.dataset.approveRun)}/approve`,
-              { method: 'POST' },
-              'Approving run...',
-              'Run approved'
-            );
-          });
+        list.querySelectorAll('[data-approve]').forEach(b => {
+          b.addEventListener('click', () => action(
+            `/api/runs/${encodeURIComponent(b.dataset.approve)}/approve`,
+            { method: 'POST' }, 'Keeping changes…', 'Changes kept'
+          ));
         });
-
-        container.querySelectorAll('[data-reject-run]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            await postAndRefresh(
-              `/api/runs/${encodeURIComponent(button.dataset.rejectRun)}/reject`,
-              { method: 'POST' },
-              'Rejecting run...',
-              'Run rejected'
+        list.querySelectorAll('[data-reject]').forEach(b => {
+          b.addEventListener('click', () => {
+            if (!confirm('Throw away these changes?')) return;
+            action(
+              `/api/runs/${encodeURIComponent(b.dataset.reject)}/reject`,
+              { method: 'POST' }, 'Discarding…', 'Changes discarded'
             );
           });
         });
       }
 
-      function renderSkillsRecipes(skills, recipes) {
-        const container = document.getElementById('skillsRecipes');
-        const skillHtml = (skills || []).map((skill) => `
-          <div class="info-box">
-            <div class="chip-row">
-              <strong>${escapeHtml(skill.name)}</strong>
-              <span class="chip">${escapeHtml(skill.permission_level)}</span>
-              <span class="chip ${skill.enabled ? 'pass' : 'off'}">${skill.enabled ? 'enabled' : 'disabled'}</span>
-            </div>
-            <div class="muted">${escapeHtml(skill.description || '')}</div>
-            <div class="toolbar" style="margin-top: 0.6rem;">
-              <button class="ghost" data-skill-toggle="${escapeHtml(skill.id)}" data-skill-enabled="${skill.enabled ? '1' : '0'}">${skill.enabled ? 'Disable' : 'Enable'}</button>
-            </div>
-          </div>
-        `).join('');
-        const recipeHtml = (recipes || []).map((recipe) => `
-          <div class="info-box">
-            <div class="chip-row">
-              <strong>${escapeHtml(recipe.name)}</strong>
-              <span class="chip ${recipe.locked ? 'warn' : 'off'}">${recipe.locked ? 'locked' : 'editable'}</span>
-            </div>
-            <div class="muted">${escapeHtml(recipe.description || '')}</div>
-            <pre class="plan">${escapeHtml(JSON.stringify(recipe.definition || {}, null, 2))}</pre>
-          </div>
-        `).join('');
-        container.innerHTML = `
-          <div class="subgrid">
-            <div>
-              <span class="label">Skills</span>
-              <div class="artifact-list">${skillHtml || '<div class="empty">No skills found.</div>'}</div>
-            </div>
-            <div>
-              <span class="label">Recipes</span>
-              <div class="artifact-list">${recipeHtml || '<div class="empty">No recipes found.</div>'}</div>
-            </div>
-          </div>
-        `;
+      // ---------- render: projects ----------
 
-        container.querySelectorAll('[data-skill-toggle]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            const nextEnabled = button.dataset.skillEnabled !== '1';
-            await postAndRefresh(
-              `/api/skills/${encodeURIComponent(button.dataset.skillToggle)}`,
-              {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled: nextEnabled })
-              },
-              'Updating skill...',
-              'Skill updated'
-            );
-          });
-        });
-      }
-
-      async function deleteIdea(ideaId, title) {
-        if (!window.confirm(`Delete the idea "${title}" from the bucket? This will not delete any promoted active project.`)) {
-          return;
-        }
-        await postAndRefresh(
-          `/api/ideas/${encodeURIComponent(ideaId)}`,
-          { method: 'DELETE' },
-          'Deleting idea...',
-          'Idea deleted'
-        );
-      }
-
-      async function deleteProject(projectId, title) {
-        if (!window.confirm(`Delete the project "${title}"? This removes its workspace and saved artifacts.`)) {
-          return;
-        }
-        await postAndRefresh(
-          `/api/projects/${encodeURIComponent(projectId)}`,
-          { method: 'DELETE' },
-          'Deleting project...',
-          'Project deleted'
-        );
-      }
-
-      function renderOrganizedSections(sections) {
-        const container = document.getElementById('organizedSections');
-        container.innerHTML = '';
-
-        if (!sections.length) {
-          container.innerHTML = '<p class="empty">No organized sections yet.</p>';
-          return;
-        }
-
-        sections.forEach((section) => {
-          const wrapper = document.createElement('details');
-          wrapper.className = 'section';
-          wrapper.open = openSections.has(section.name);
-          wrapper.innerHTML = `
-            <summary>
-              <strong>${escapeHtml(section.name)}</strong>
-              <span class="muted">${section.projects.length} idea(s)</span>
-            </summary>
-            <div class="section-body"></div>
-          `;
-
-          wrapper.addEventListener('toggle', () => {
-            if (wrapper.open) {
-              openSections.add(section.name);
-            } else {
-              openSections.delete(section.name);
-            }
-            saveOpenSections();
-          });
-
-          const body = wrapper.querySelector('.section-body');
-          section.projects.forEach((project) => {
-            const card = document.createElement('div');
-            card.className = 'bucket-card';
-            card.innerHTML = `
-              <div class="card-head">
-                <div class="card-title">
-                  <strong>${escapeHtml(project.title)}</strong>
-                  <div class="muted">${escapeHtml(project.description)}</div>
-                  <div class="chip-row" style="margin-top: 0.7rem;">
-                    <span class="chip ${project.active_project_id ? 'pass' : 'off'}">
-                      ${project.active_project_id ? 'Promoted' : 'Bucket only'}
-                    </span>
-                  </div>
-                </div>
-                <div class="inline-actions">
-                  <button class="danger" data-delete-idea="${escapeHtml(project.idea_id)}" data-delete-idea-title="${escapeHtml(project.title)}">Delete idea</button>
-                </div>
-              </div>
-            `;
-            body.appendChild(card);
-          });
-
-          container.appendChild(wrapper);
-        });
-
-        container.querySelectorAll('[data-delete-idea]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            await deleteIdea(button.dataset.deleteIdea, button.dataset.deleteIdeaTitle);
-          });
-        });
-      }
-
-      function gateHtml(gate, projectId) {
-        const chipClass = gate.passed ? 'pass' : 'fail';
-        const artifactLink = gate.artifact_path
-          ? `<a href="/api/projects/${encodeURIComponent(projectId)}/artifacts/${encodeURIComponent(gate.artifact_path)}">Open log</a>`
-          : '';
-
-        return `
-          <div class="gate">
-            <div class="chip-row">
-              <strong>${escapeHtml(gate.label)}</strong>
-              <span class="chip ${chipClass}">${gate.passed ? 'Pass' : 'Fail'}</span>
-            </div>
-            <div class="muted">${escapeHtml(gate.details || '')}</div>
-            ${artifactLink ? `<div style="margin-top: 0.4rem;">${artifactLink}</div>` : ''}
-          </div>
-        `;
-      }
-
-      function attemptHtml(attempt) {
-        const scoreLine = attempt.candidate_score === null || attempt.candidate_score === undefined
-          ? `Baseline ${attempt.baseline_score}`
-          : `Baseline ${attempt.baseline_score} -> Candidate ${attempt.candidate_score}`;
-        const changedFiles = (attempt.changed_files || []).length
-          ? `Changed: ${attempt.changed_files.join(', ')}`
-          : 'No file changes recorded';
-        const repoStats = attempt.chunk_count || attempt.files_considered || attempt.skipped_files
-          ? `Repo analysis: ${attempt.files_considered || 0} files, ${attempt.chunk_count || 0} chunks, ${attempt.skipped_files || 0} skipped`
-          : '';
-
-        return `
-          <div class="attempt">
-            <strong>${escapeHtml(attempt.builder_name)} | ${escapeHtml(attempt.stage_name)} | ${escapeHtml(attempt.decision)}</strong>
-            <div>${escapeHtml(attempt.summary)}</div>
-            <div class="muted">${escapeHtml(scoreLine)}</div>
-            <div class="muted">${escapeHtml(changedFiles)}</div>
-            ${repoStats ? `<div class="muted">${escapeHtml(repoStats)}</div>` : ''}
-            ${attempt.llm_summary ? `<div class="muted">LLM summary: ${escapeHtml(attempt.llm_summary)}</div>` : ''}
-            <div class="muted">${escapeHtml(attempt.reason || '')}</div>
-            ${attempt.next_task ? `<div class="muted">Next task: ${escapeHtml(attempt.next_task)}</div>` : ''}
-            <div class="muted">${escapeHtml(attempt.timestamp)}</div>
-          </div>
-        `;
-      }
-
-      function projectArtifactsHtml(project) {
-        const artifacts = project.validation_artifacts || {};
-        const items = Object.entries(artifacts);
-        if (!items.length) {
-          return '<div class="empty">No validation artifacts yet.</div>';
-        }
-        return items.map(([label, path]) => `
-          <div class="info-box">
-            <span class="label">${escapeHtml(label.replaceAll('_', ' '))}</span>
-            <a href="/api/projects/${encodeURIComponent(project.id)}/artifacts/${encodeURIComponent(path)}">${escapeHtml(path)}</a>
-          </div>
-        `).join('');
-      }
-
-      function priorityTasksHtml(tasks) {
-        if (!tasks || !tasks.length) {
-          return '<div class="empty">No priority tasks recorded yet.</div>';
-        }
-        return tasks.map((task) => `
-          <div class="task">
-            <strong>${escapeHtml(task.title)}</strong>
-            <div class="muted">${escapeHtml(task.rationale || '')}</div>
-            <div class="muted">${escapeHtml((task.target_files || []).join(', ') || 'Target files not specified')}</div>
-            <div class="muted">${escapeHtml((task.acceptance_checks || []).join(' | ') || 'Acceptance checks not specified')}</div>
-          </div>
-        `).join('');
-      }
-
-      function renderActiveProjects(projects) {
-        const container = document.getElementById('activeProjects');
-        container.innerHTML = '';
-
+      function renderProjects(projects) {
+        const container = $('projects-list');
+        const count = $('project-count');
+        count.textContent = projects.length ? `${projects.length} project${projects.length === 1 ? '' : 's'}` : '';
         if (!projects.length) {
-          container.innerHTML = '<p class="empty">No active projects yet. Promote a qualified bucket idea to start the MVP factory.</p>';
+          container.innerHTML = `
+            <div class="empty">
+              You don't have any projects yet.<br>Import a GitHub repo or grab an idea to start.
+            </div>`;
           return;
         }
 
-        projects.forEach((project) => {
-          const brief = project.product_brief || {};
-          const validation = project.validation_summary || {};
-          const gates = project.hard_gate_results || [];
-          const latestAttempt = project.latest_attempt || null;
-          const digest = project.repo_digest || {};
-          const attemptsHtml = (project.recent_attempts || []).length
-            ? `<div class="attempt-list">${project.recent_attempts.map(attemptHtml).join('')}</div>`
-            : '<div class="empty">No attempts recorded yet.</div>';
-          const gateHtmlList = gates.length
-            ? `<div class="gate-list">${gates.map((gate) => gateHtml(gate, project.id)).join('')}</div>`
-            : '<div class="empty">Validation has not run yet.</div>';
-          const digestStatusClass =
-            project.repo_digest_status === 'ready'
-              ? 'pass'
-              : project.repo_digest_status === 'failed'
-                ? 'fail'
-                : project.repo_digest_status === 'deferred'
-                  ? 'warn'
-                  : 'off';
-
-          const card = document.createElement('div');
-          card.className = 'project-card';
-          card.innerHTML = `
-            <div class="card-head">
-              <div class="card-title">
-                <strong>${escapeHtml(project.title)}</strong>
-                <span class="muted">${escapeHtml(brief.opportunity_summary || project.source_description || '')}</span>
-                <div class="chip-row">
-                  <span class="chip score">Score ${escapeHtml(project.current_score)} / ${escapeHtml(project.target_score)}</span>
-                  <span class="chip">${escapeHtml(project.lane || 'unassigned')}</span>
-                  <span class="chip">${escapeHtml(project.stage || 'unknown')}</span>
-                  <span class="chip ${project.validation_status === 'passed' ? 'pass' : project.validation_status === 'failed' ? 'fail' : 'warn'}">
-                    validation ${escapeHtml(project.validation_status || 'unknown')}
-                  </span>
-                  <span class="chip ${project.auto_run ? 'pass' : 'off'}">${project.auto_run ? 'auto-run on' : 'auto-run off'}</span>
-                  ${project.source_type === 'github' ? `<span class="chip">GitHub import</span><span class="chip ${digestStatusClass}">digest ${escapeHtml(project.repo_digest_status || 'unknown')}</span>` : ''}
+        container.innerHTML = projects.map(p => {
+          const status = projectStatus(p);
+          const brief = p.product_brief || {};
+          const isGithub = p.source_type === 'github';
+          const primaryLabel = isGithub ? 'Improve with AI' : 'Run next step';
+          return `
+            <div class="project" data-project="${escapeHtml(p.id)}">
+              <div class="project-head">
+                <span class="project-icon">${status.icon}</span>
+                <div class="project-main">
+                  <p class="project-name">${escapeHtml(p.title || 'Untitled project')}</p>
+                  <p class="project-status"><span class="status-dot ${status.dot}"></span>${escapeHtml(status.text)}</p>
                 </div>
               </div>
-              <div class="inline-actions">
-                <button data-project-run="${escapeHtml(project.id)}">${project.source_type === 'github' ? 'Run improvement' : 'Run pipeline'}</button>
-                ${project.source_type !== 'github' ? `<button class="secondary" data-project-build="${escapeHtml(project.id)}">Build scaffold</button>` : ''}
-                <button class="ghost" data-project-validate="${escapeHtml(project.id)}">Validate</button>
-                <button class="ghost" data-project-download="${escapeHtml(project.id)}">Download repo</button>
-                <button class="danger" data-project-delete="${escapeHtml(project.id)}" data-project-title="${escapeHtml(project.title)}">Delete project</button>
-                <label class="checkbox">
-                  <input type="checkbox" data-project-auto="${escapeHtml(project.id)}" ${project.auto_run ? 'checked' : ''} />
-                  Auto-run
+              <div class="actions">
+                <button class="btn primary small" data-run="${escapeHtml(p.id)}">${primaryLabel}</button>
+                <button class="btn ghost small" data-download="${escapeHtml(p.id)}">Download</button>
+                <label class="row" style="font-size: 0.88rem; color: var(--muted); gap: 0.35rem;">
+                  <input type="checkbox" data-auto="${escapeHtml(p.id)}" ${p.auto_run ? 'checked' : ''} />
+                  Auto-improve
                 </label>
+                <button class="btn danger small" data-delete="${escapeHtml(p.id)}" data-title="${escapeHtml(p.title || '')}">Delete</button>
+                <button class="toggle-details" data-toggle="${escapeHtml(p.id)}">Show details ↓</button>
               </div>
-            </div>
-            ${project.source_type === 'github' ? `
-            <div class="subgrid">
-              <div class="grid three-col">
-                <div class="info-box">
-                  <span class="label">AI repo summary</span>
-                  <div>${escapeHtml(project.repo_digest_summary || digest.summary || 'Repo digest has not been generated yet.')}</div>
-                </div>
-                <div class="info-box">
-                  <span class="label">Repo head</span>
-                  <div class="mono">${escapeHtml(project.repo_head || digest.repo_head || 'Unknown')}</div>
-                  <div class="muted">${escapeHtml(project.repo_digest_updated_at || digest.analyzed_at || 'Not analyzed yet')}</div>
-                </div>
-                <div class="info-box">
-                  <span class="label">Repo scan stats</span>
-                  <div>${escapeHtml(`${digest.files_considered || 0} files considered`)}</div>
-                  <div class="muted">${escapeHtml(`${digest.chunk_count || 0} chunks, ${digest.skipped_files || 0} skipped`)}</div>
-                </div>
-              </div>
-
-              <div>
-                <span class="label">Top priorities</span>
-                <div class="task-list">${priorityTasksHtml(project.priority_tasks || digest.priority_tasks || [])}</div>
-              </div>
-
-              <div class="grid two-col">
-                <div class="info-box">
-                  <span class="label">AI execution brief</span>
-                  <pre class="plan">${escapeHtml(project.agent_plan_markdown || digest.agent_plan_markdown || 'No AI execution brief has been saved yet.')}</pre>
-                </div>
-                <div class="info-box">
-                  <span class="label">Manual instructions</span>
-                  <textarea data-project-instructions="${escapeHtml(project.id)}" rows="12" placeholder="Add user priorities, constraints, or product direction here.">${escapeHtml(project.instructions || '')}</textarea>
-                  <div class="toolbar" style="margin-top: 0.6rem;">
-                    <button data-project-save-instructions="${escapeHtml(project.id)}" class="secondary">Save instructions</button>
-                    <button data-project-yolo="${escapeHtml(project.id)}" class="ghost">YOLO - generate AI improvement plan</button>
-                  </div>
-                  <div class="muted" style="margin-top: 0.6rem;">The AI execution brief is persisted separately from your manual instructions. Improvement runs use both.</div>
-                </div>
-              </div>
-            </div>
-            ` : ''}
-
-            <div class="subgrid">
-              <div class="grid three-col">
-                <div class="info-box">
-                  <span class="label">Product brief</span>
-                  <div>${escapeHtml(brief.target_user || 'No target user recorded')}</div>
-                  <div class="muted">${escapeHtml(brief.must_have_flow || '')}</div>
-                </div>
-                <div class="info-box">
-                  <span class="label">Run contract</span>
-                  <div class="mono">${escapeHtml(project.run_command || '')}</div>
-                  <div class="muted mono">${escapeHtml(project.test_command || '')}</div>
-                </div>
-                <div class="info-box">
-                  <span class="label">Demo scenario</span>
-                  <div>${escapeHtml(brief.demo_scenario || 'Not planned yet')}</div>
-                </div>
-              </div>
-              ${project.source_type === 'github' ? `
-              <div class="grid three-col">
-                <div class="info-box">
-                  <span class="label">Last improvement summary</span>
-                  <div>${escapeHtml((latestAttempt && (latestAttempt.llm_summary || latestAttempt.summary)) || project.last_accepted_summary || 'No full-project run yet')}</div>
-                </div>
-                <div class="info-box">
-                  <span class="label">Last change set</span>
-                  <div>${escapeHtml(`${(latestAttempt?.changed_files || []).length} changed file(s)`)}</div>
-                  <div class="muted">${escapeHtml((latestAttempt?.changed_files || []).slice(0, 4).join(', ') || 'No applied edits yet')}</div>
-                </div>
-                <div class="info-box">
-                  <span class="label">What is holding it back</span>
-                  <div>${escapeHtml((digest.risks || []).slice(0, 3).join(' | ') || project.stalled_reason || 'No major repo risks recorded yet')}</div>
-                </div>
-              </div>
-              ` : ''}
-
-              <div class="grid two-col">
-                <div>
-                  <span class="label">Validation gates</span>
-                  ${gateHtmlList}
-                </div>
-                <div>
-                  <span class="label">Current status</span>
-                  <div class="artifact-list">
-                    <div class="info-box">
-                      <span class="label">Summary</span>
-                      <div>${escapeHtml(validation.summary || 'Validation not run yet')}</div>
-                    </div>
-                    <div class="info-box">
-                      <span class="label">Passed checks</span>
-                      <div>${escapeHtml((validation.passed_checks || []).join(', ') || 'None yet')}</div>
-                    </div>
-                    <div class="info-box">
-                      <span class="label">Failing checks</span>
-                      <div>${escapeHtml((validation.failing_checks || []).join(', ') || 'None')}</div>
-                    </div>
-                    <div class="info-box">
-                      <span class="label">Next best task</span>
-                      <div>${escapeHtml(project.stalled_reason || validation.next_task || 'Continue improving workflow quality.')}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <span class="label">Validation artifacts</span>
-                <div class="artifact-list">${projectArtifactsHtml(project)}</div>
-              </div>
-
-              <div>
-                <span class="label">Recent attempts</span>
-                ${attemptsHtml}
+              <div class="project-details" id="details-${escapeHtml(p.id)}">
+                ${detailRows(p, brief, isGithub)}
               </div>
             </div>
           `;
+        }).join('');
 
-          container.appendChild(card);
-        });
-
-        container.querySelectorAll('[data-project-run]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            const projectId = button.dataset.projectRun;
-            const project = (await fetchJson('/api/state')).active_projects?.find((p) => p.id === projectId);
-            const isGitHub = project?.source_type === 'github';
-            const status = document.getElementById('status');
-            status.textContent = isGitHub ? 'Running repo-specific improvement...' : 'Running full pipeline...';
-            try {
-              const data = await fetchJson(`/api/projects/${projectId}/run`, { method: 'POST' });
-              await fetchState();
-              if (data.decision === 'deferred') {
-                status.textContent = data.message || 'Improvement deferred. Try again shortly.';
-              } else {
-                status.textContent = isGitHub ? 'Repo improvement run complete' : 'Pipeline run complete';
-              }
-            } catch (error) {
-              status.textContent = error.message || 'Project run failed';
-              throw error;
-            }
-          });
-        });
-
-        container.querySelectorAll('[data-project-build]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            await postAndRefresh(`/api/projects/${button.dataset.projectBuild}/build`, { method: 'POST' }, 'Scaffolding project...', 'Scaffold refreshed');
-          });
-        });
-
-        container.querySelectorAll('[data-project-validate]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            await postAndRefresh(`/api/projects/${button.dataset.projectValidate}/validate`, { method: 'POST' }, 'Running validation...', 'Validation complete');
-          });
-        });
-
-        container.querySelectorAll('[data-project-download]').forEach((button) => {
-          button.addEventListener('click', () => {
-            window.location.href = `/api/projects/${encodeURIComponent(button.dataset.projectDownload)}/download`;
-          });
-        });
-
-        container.querySelectorAll('[data-project-delete]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            await deleteProject(button.dataset.projectDelete, button.dataset.projectTitle);
-          });
-        });
-
-        container.querySelectorAll('[data-project-save-instructions]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            const projectId = button.dataset.projectSaveInstructions;
-            const textarea = container.querySelector(`[data-project-instructions="${projectId}"]`);
-            const instructions = (textarea && textarea.value) ? textarea.value : '';
-            const status = document.getElementById('status');
-            status.textContent = 'Saving instructions...';
-            try {
-              await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/instructions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ instructions }),
-              });
-              status.textContent = 'Instructions saved.';
-              setTimeout(() => { status.textContent = ''; }, 2000);
-              await fetchState();
-            } catch (e) {
-              status.textContent = e.message || 'Save failed';
-            }
-          });
-        });
-
-        container.querySelectorAll('[data-project-yolo]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            const projectId = button.dataset.projectYolo;
-            const status = document.getElementById('status');
-            status.textContent = 'Generating AI repo digest and productive improvement plan...';
-            try {
-              const data = await fetchJson(`/api/projects/${encodeURIComponent(projectId)}/instructions/yolo`, { method: 'POST' });
-              status.textContent = data.repo_digest?.summary || 'AI improvement plan regenerated.';
-              await fetchState();
-            } catch (e) {
-              status.textContent = e.message || 'YOLO failed';
-            }
-          });
-        });
-
-        container.querySelectorAll('[data-project-auto]').forEach((checkbox) => {
-          checkbox.addEventListener('change', async () => {
-            try {
-              await postAndRefresh(
-                `/api/projects/${checkbox.dataset.projectAuto}/auto`,
-                {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ auto_run: checkbox.checked })
-                },
-                'Updating auto-run...',
-                'Auto-run updated'
-              );
-            } catch (error) {
-              checkbox.checked = !checkbox.checked;
-            }
-          });
-        });
+        wireProjectActions(container);
       }
 
-      function renderIdeaProjects(projects) {
-        const container = document.getElementById('projects');
-        container.innerHTML = '';
-
-        if (!projects.length) {
-          container.innerHTML = '<p class="empty">No project ideas in the bucket yet.</p>';
-          return;
+      function detailRows(p, brief, isGithub) {
+        const rows = [];
+        if (brief.target_user) rows.push(['For', brief.target_user]);
+        if (brief.must_have_flow) rows.push(['Core flow', brief.must_have_flow]);
+        if (p.lane) rows.push(['Project type', p.lane]);
+        if (p.current_score != null && p.target_score != null) {
+          rows.push(['Quality score', `${p.current_score} / ${p.target_score}`]);
         }
+        const validation = p.validation_summary || {};
+        if (validation.failing_checks && validation.failing_checks.length) {
+          rows.push(['Failing checks', validation.failing_checks.join(', ')]);
+        }
+        if (validation.next_task || p.stalled_reason) {
+          rows.push(['Next step', p.stalled_reason || validation.next_task]);
+        }
+        if (isGithub) {
+          rows.push(['Source', p.repo_head ? `GitHub · ${p.repo_head.slice(0, 10)}` : 'GitHub']);
+          if (p.repo_digest_summary) rows.push(['Summary', p.repo_digest_summary]);
+        }
+        if (!rows.length) return '<p class="muted" style="margin: 0;">No extra info yet.</p>';
+        return rows.map(([k, v]) =>
+          `<div class="detail-row"><span class="detail-label">${escapeHtml(k)}</span><span class="detail-value">${escapeHtml(v)}</span></div>`
+        ).join('');
+      }
 
-        projects.slice().reverse().forEach((project) => {
-          const card = document.createElement('div');
-          card.className = 'bucket-card';
-          card.innerHTML = `
-            <div class="card-head">
-              <div class="card-title">
-                <strong>${escapeHtml(project.title)}</strong>
-                <span class="muted">${escapeHtml(project.description)}</span>
-                <span class="muted">${escapeHtml(project.created_at)}</span>
-              </div>
-              <div class="inline-actions">
-                <button data-promote="${escapeHtml(project.idea_id)}" ${project.active_project_id ? 'disabled' : ''}>
-                  ${project.active_project_id ? 'Already promoted' : 'Promote to active MVP'}
-                </button>
-                <button class="danger" data-delete-idea="${escapeHtml(project.idea_id)}" data-delete-idea-title="${escapeHtml(project.title)}">Delete idea</button>
-              </div>
-            </div>
-          `;
-          container.appendChild(card);
+      function wireProjectActions(container) {
+        container.querySelectorAll('[data-run]').forEach(b => {
+          b.addEventListener('click', () => action(
+            `/api/projects/${encodeURIComponent(b.dataset.run)}/run`,
+            { method: 'POST' }, 'Working on it…', 'Done — check the project'
+          ));
         });
-
-        container.querySelectorAll('[data-promote]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            await postAndRefresh(
-              '/api/projects/select',
-              {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ idea_id: button.dataset.promote })
-              },
-              'Qualifying and promoting idea...',
-              'Active MVP project created'
+        container.querySelectorAll('[data-download]').forEach(b => {
+          b.addEventListener('click', () => {
+            window.location.href = `/api/projects/${encodeURIComponent(b.dataset.download)}/download`;
+          });
+        });
+        container.querySelectorAll('[data-auto]').forEach(cb => {
+          cb.addEventListener('change', async () => {
+            try {
+              await action(
+                `/api/projects/${encodeURIComponent(cb.dataset.auto)}/auto`,
+                { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ auto_run: cb.checked }) },
+                'Updating…', cb.checked ? 'Auto-improve on' : 'Auto-improve off'
+              );
+            } catch { cb.checked = !cb.checked; }
+          });
+        });
+        container.querySelectorAll('[data-delete]').forEach(b => {
+          b.addEventListener('click', () => {
+            const title = b.dataset.title || 'this project';
+            if (!confirm(`Delete "${title}"? This removes the workspace for good.`)) return;
+            action(
+              `/api/projects/${encodeURIComponent(b.dataset.delete)}`,
+              { method: 'DELETE' }, 'Deleting…', 'Project deleted'
             );
           });
         });
-
-        container.querySelectorAll('[data-delete-idea]').forEach((button) => {
-          button.addEventListener('click', async () => {
-            await deleteIdea(button.dataset.deleteIdea, button.dataset.deleteIdeaTitle);
+        container.querySelectorAll('[data-toggle]').forEach(b => {
+          b.addEventListener('click', () => {
+            const panel = $(`details-${b.dataset.toggle}`);
+            const open = panel.classList.toggle('open');
+            b.textContent = open ? 'Hide details ↑' : 'Show details ↓';
           });
         });
       }
 
-      function renderLanesForm(lanes) {
-        const container = document.getElementById('lanesForm');
-        if (!lanes || !lanes.length) {
-          container.innerHTML = '<p class="muted">No project types configured.</p>';
-          return;
-        }
-        container.innerHTML = lanes.map((lane) => `
-          <div class="lane-row" style="margin-bottom: 0.9rem; padding: 0.6rem 0; border-bottom: 1px solid var(--edge);">
-            <label class="checkbox" style="display: inline-flex; margin-right: 1rem;">
-              <input type="checkbox" data-lane-id="${escapeHtml(lane.id)}" data-lane-enabled ${lane.enabled ? 'checked' : ''} />
-              Enabled
-            </label>
-            <strong style="margin-right: 0.5rem;">${escapeHtml(lane.id)}</strong>
-            <input type="text" data-lane-id="${escapeHtml(lane.id)}" data-lane-label value="${escapeHtml(lane.label || '')}" placeholder="Label" style="width: 220px; padding: 0.4rem; border-radius: 8px; border: 1px solid var(--edge); background: #0a1322; color: var(--text); margin-right: 0.5rem;" />
-            <input type="text" data-lane-id="${escapeHtml(lane.id)}" data-lane-keywords value="${escapeHtml((lane.keywords || []).join(', '))}" placeholder="Keywords (comma-separated)" style="flex: 1; min-width: 200px; padding: 0.4rem; border-radius: 8px; border: 1px solid var(--edge); background: #0a1322; color: var(--text);" />
+      // ---------- render: ideas ----------
+
+      function renderIdeas(ideas) {
+        const list = (ideas || []).filter(i => !i.active_project_id);
+        const section = $('ideas-section');
+        const container = $('ideas-list');
+        const count = $('ideas-count');
+        if (!list.length) { section.style.display = 'none'; return; }
+        section.style.display = 'block';
+        count.textContent = `${list.length} idea${list.length === 1 ? '' : 's'}`;
+
+        container.innerHTML = list.slice().reverse().map(i => `
+          <div class="project">
+            <div class="project-head">
+              <span class="project-icon">💡</span>
+              <div class="project-main">
+                <p class="project-name">${escapeHtml(i.title)}</p>
+                <p class="project-status">${escapeHtml(i.description || '')}</p>
+              </div>
+            </div>
+            <div class="actions">
+              <button class="btn primary small" data-start="${escapeHtml(i.idea_id)}">Start working on this</button>
+              <button class="btn ghost small" data-del-idea="${escapeHtml(i.idea_id)}" data-title="${escapeHtml(i.title)}">Not interested</button>
+            </div>
           </div>
         `).join('');
+
+        container.querySelectorAll('[data-start]').forEach(b => {
+          b.addEventListener('click', () => action(
+            '/api/projects/select',
+            { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ idea_id: b.dataset.start }) },
+            'Setting up your project…', 'Project ready'
+          ));
+        });
+        container.querySelectorAll('[data-del-idea]').forEach(b => {
+          b.addEventListener('click', () => {
+            if (!confirm(`Remove "${b.dataset.title}" from your ideas?`)) return;
+            action(
+              `/api/ideas/${encodeURIComponent(b.dataset.delIdea)}`,
+              { method: 'DELETE' }, 'Removing…', 'Idea removed'
+            );
+          });
+        });
+      }
+
+      // ---------- render: advanced (lanes) ----------
+
+      function renderLanes(lanes) {
+        const container = $('lanesForm');
+        if (!lanes || !lanes.length) {
+          container.innerHTML = '<p class="muted" style="margin:0;">No project types configured.</p>';
+          return;
+        }
+        container.innerHTML = lanes.map(lane => `
+          <div class="lane-row">
+            <label>
+              <input type="checkbox" data-lane="${escapeHtml(lane.id)}" data-field="enabled" ${lane.enabled ? 'checked' : ''} />
+              On
+            </label>
+            <input type="text" data-lane="${escapeHtml(lane.id)}" data-field="label" value="${escapeHtml(lane.label || lane.id)}" placeholder="Name" />
+            <input type="text" data-lane="${escapeHtml(lane.id)}" data-field="keywords" value="${escapeHtml((lane.keywords || []).join(', '))}" placeholder="Keywords (comma-separated)" />
+          </div>
+        `).join('');
+      }
+
+      // ---------- status pill ----------
+
+      function renderStatusPill(data) {
+        const projects = data.active_projects || [];
+        const approvals = (data.approvals || []).filter(a => a.status === 'pending').length;
+        const autoCount = projects.filter(p => p.auto_run).length;
+        const pieces = [];
+        if (approvals) pieces.push(`${approvals} to review`);
+        if (autoCount) pieces.push(`${autoCount} auto-improving`);
+        if (!pieces.length && projects.length) pieces.push(`${projects.length} project${projects.length === 1 ? '' : 's'}`);
+        if (!pieces.length) pieces.push('Ready');
+        $('status-pill').textContent = pieces.join(' · ');
+      }
+
+      // ---------- main state fetch ----------
+
+      async function fetchState() {
+        try {
+          const data = await fetchJson('/api/state');
+          $('heartbeat').value = data.heartbeat_seconds || 300;
+          renderStatusPill(data);
+          renderApprovals(data.approvals || []);
+          renderProjects(data.active_projects || []);
+          renderIdeas(data.projects || []);
+        } catch (e) {
+          $('status-pill').textContent = 'Offline';
+          toast(e.message || 'Failed to load');
+        }
       }
 
       async function fetchLanes() {
         try {
           const data = await fetchJson('/api/lanes');
-          renderLanesForm(data.lanes || []);
-        } catch (e) {
-          document.getElementById('lanesForm').innerHTML = '<p class="muted">Failed to load project types.</p>';
+          renderLanes(data.lanes || []);
+        } catch {
+          $('lanesForm').innerHTML = '<p class="muted" style="margin:0;">Could not load project types.</p>';
         }
       }
 
-      async function fetchState() {
-        const data = await fetchJson('/api/state');
-        document.getElementById('heartbeat').value = data.heartbeat_seconds;
-        document.getElementById('agentInfo').textContent = formatStatus(data);
-        renderLastResult(data.last_result);
-        renderWorkspaces(data.workspaces || []);
-        renderRuns(data.recent_runs || []);
-        renderApprovals(data.approvals || []);
-        renderSkillsRecipes(data.skills || [], data.recipes || []);
-        renderActiveProjects(data.active_projects || []);
-        renderOrganizedSections(data.organized_sections || []);
-        renderIdeaProjects(data.projects || []);
-      }
+      // ---------- wire top-level actions ----------
 
-      async function postAndRefresh(url, options, pendingText, doneText) {
-        const status = document.getElementById('status');
-        status.textContent = pendingText;
+      $('card-import').addEventListener('click', () => {
+        const form = $('import-form');
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        if (form.style.display === 'block') $('repoUrl').focus();
+      });
+      $('cancel-import').addEventListener('click', () => {
+        $('import-form').style.display = 'none';
+        $('repoUrl').value = '';
+      });
+      $('do-import').addEventListener('click', async () => {
+        const url = ($('repoUrl').value || '').trim();
+        if (!url) { toast('Paste a GitHub URL first'); return; }
         try {
-          const data = await fetchJson(url, options);
-          status.textContent = doneText;
-          await fetchState();
-          return data;
-        } catch (error) {
-          status.textContent = error.message || 'Request failed';
-          throw error;
-        }
-      }
-
-      document.getElementById('runNow').addEventListener('click', async () => {
-        await postAndRefresh('/api/run', { method: 'POST' }, 'Researching supported ideas...', 'Research complete');
+          await action('/api/projects/import',
+            { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ repo_url: url }) },
+            'Cloning and reading the repo…', 'Repo imported');
+          $('repoUrl').value = '';
+          $('import-form').style.display = 'none';
+        } catch {}
+      });
+      $('repoUrl').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') $('do-import').click();
       });
 
-      document.getElementById('organizeNow').addEventListener('click', async () => {
-        await postAndRefresh('/api/organize', { method: 'POST' }, 'Organizing bucket...', 'Bucket organized');
+      $('card-ideas').addEventListener('click', () => action(
+        '/api/run', { method: 'POST' }, 'Hunting for ideas…', 'Found some ideas'
+      ));
+
+      $('saveHeartbeat').addEventListener('click', () => {
+        const seconds = Number($('heartbeat').value);
+        action('/api/heartbeat',
+          { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ heartbeat_seconds: seconds }) },
+          'Saving…', 'Schedule saved');
       });
 
-      document.getElementById('saveHeartbeat').addEventListener('click', async () => {
-        const seconds = Number(document.getElementById('heartbeat').value);
-        await postAndRefresh(
-          '/api/heartbeat',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ heartbeat_seconds: seconds })
-          },
-          'Saving heartbeat...',
-          'Heartbeat saved'
-        );
-      });
-
-      fetchState().catch((error) => {
-        document.getElementById('agentInfo').textContent = error.message || 'Failed to load state';
-      });
-      fetchLanes();
-
-      document.getElementById('saveLanes').addEventListener('click', async () => {
-        const form = document.getElementById('lanesForm');
-        const laneIds = [...new Set([...form.querySelectorAll('[data-lane-id]')].map((el) => el.dataset.laneId))];
-        const lanes = laneIds.map((id) => {
-          const enabledEl = form.querySelector(`[data-lane-id="${id}"][data-lane-enabled]`);
-          const labelEl = form.querySelector(`[data-lane-id="${id}"][data-lane-label]`);
-          const keywordsEl = form.querySelector(`[data-lane-id="${id}"][data-lane-keywords]`);
-          const keywordsStr = (keywordsEl && keywordsEl.value) ? keywordsEl.value : '';
-          const keywords = keywordsStr.split(',').map((s) => s.trim()).filter(Boolean);
+      $('saveLanes').addEventListener('click', async () => {
+        const form = $('lanesForm');
+        const ids = [...new Set([...form.querySelectorAll('[data-lane]')].map(el => el.dataset.lane))];
+        const lanes = ids.map(id => {
+          const enabledEl = form.querySelector(`[data-lane="${id}"][data-field="enabled"]`);
+          const labelEl = form.querySelector(`[data-lane="${id}"][data-field="label"]`);
+          const keywordsEl = form.querySelector(`[data-lane="${id}"][data-field="keywords"]`);
+          const keywords = ((keywordsEl && keywordsEl.value) || '').split(',').map(s => s.trim()).filter(Boolean);
           return {
             id,
-            label: (labelEl && labelEl.value) ? labelEl.value : id,
+            label: (labelEl && labelEl.value) || id,
             enabled: enabledEl ? !!enabledEl.checked : true,
             keywords,
           };
         });
-        const statusEl = document.getElementById('lanesStatus');
-        statusEl.textContent = 'Saving...';
         try {
-          await fetchJson('/api/lanes', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lanes }),
-          });
-          statusEl.textContent = 'Saved.';
-          setTimeout(() => { statusEl.textContent = ''; }, 2000);
+          await fetchJson('/api/lanes',
+            { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ lanes }) });
+          toast('Project types saved');
         } catch (e) {
-          statusEl.textContent = e.message || 'Save failed';
+          toast(e.message || 'Save failed');
         }
       });
 
-      document.getElementById('importRepo').addEventListener('click', async () => {
-        const input = document.getElementById('repoUrl');
-        const statusEl = document.getElementById('importStatus');
-        const url = (input?.value || '').trim();
-        if (!url) {
-          statusEl.textContent = 'Enter a GitHub repo URL.';
-          return;
-        }
-        statusEl.textContent = 'Cloning repository and generating the AI repo digest...';
-        try {
-          const data = await fetchJson('/api/projects/import', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ repo_url: url }),
-          });
-          if (input) input.value = '';
-          statusEl.textContent = data.message || 'Repository imported.';
-          await fetchState();
-        } catch (e) {
-          statusEl.textContent = e.message || 'Import failed';
-        }
-      });
+      // ---------- init ----------
 
-      setInterval(() => {
-        fetchState().catch(() => {});
-      }, 15000);
+      fetchState();
+      fetchLanes();
+      setInterval(fetchState, 15000);
     </script>
   </body>
 </html>
