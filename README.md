@@ -1,299 +1,177 @@
-# Blip Local Agent Platform
+# AI Vault
 
-Blip is now a local-first agent platform for autonomous repo engineering.
+A private vault for the configuration files that bring a new AI system up to
+speed — `soul.md`, skills, MCP configs, agent definitions, and so on. Group
+them into **bundles**, edit them in the browser, and download a bundle as a
+zip when you want to spin up a fresh AI.
 
-It combines:
+This branch (`claude/ai-vault-mvp-AmxlJ`) holds the Next.js MVP. It is
+permanently divergent from `main` (which keeps the unrelated original
+project).
 
-- fresh-context repo planning and execution loops
-- a daemon-style local control plane with isolated workspaces and runs
-- approval-gated branch/worktree application
-- a skill registry and recipe library
+## Stack
 
-The previous lane-based MVP factory is still here, but now as a built-in specialist recipe on top of the broader platform.
+- Next.js 14 (App Router) + TypeScript + Tailwind CSS
+- Supabase Auth (magic-link email) + Postgres with row-level security
+- CodeMirror 6 in-browser editor (Markdown / JSON / YAML)
+- `jszip` for server-side ZIP export
+- Deploy: Vercel
 
-Blip still supports three flagship B2B lanes:
+## Setup
 
-- internal ops copilots
-- intake and approval workflows
-- reporting dashboards
+### 1. Provision a Supabase project
 
-Every generated MVP workspace still moves through the same specialist flow:
+1. Create a project at https://supabase.com.
+2. In **Authentication → Providers**, enable **Email** with magic links and
+   disable password.
+3. In **Authentication → URL configuration → Redirect URLs**, add:
+   - `http://localhost:3000/auth/callback`
+   - `https://<your-vercel-domain>/auth/callback`
+4. In **SQL Editor**, run `supabase/migrations/0001_init.sql`.
 
-1. qualify the idea into a supported lane
-2. freeze a `PRODUCT_BRIEF.json`
-3. scaffold a canonical repo on one golden stack
-4. run deterministic validation gates
-5. let REF score qualitative quality only after the hard gates pass
+Verify policies (should be 8 rows):
 
-README-only edits still do not count as progress. A run only matters when it improves the actual repo or workflow and survives validation.
-
-## Local Platform Model
-
-Blip now keeps its runtime state in a local control-plane database under `BLIP_HOME`:
-
-- `BLIP_HOME/blip.db` for workspaces, runs, approvals, skills, recipes, and migrated legacy state
-- `BLIP_HOME/workspaces` for imported/generated repos
-- `BLIP_HOME/artifacts` for run worktrees, logs, and approval artifacts
-- `BLIP_HOME/skills` for installed skill manifests
-
-Generated and imported project workspaces live outside the app repo by default so `uvicorn --reload` does not watch nested repos and generated files.
-
-Default `BLIP_HOME` roots:
-
-- Windows: `%LOCALAPPDATA%\\Blip-AI`
-- macOS: `~/Library/Application Support/Blip-AI`
-- Linux: `~/.local/share/blip-ai`
-
-Override the shared platform home with `BLIP_HOME`, or override just workspace storage with `BLIP_PROJECTS_ROOT`.
-
-## Golden Stack
-
-Generated MVPs use one stack only:
-
-- FastAPI
-- Jinja
-- HTMX
-- SQLite
-- SQLModel
-- pytest
-
-Each scaffold includes:
-
-- `README.md`
-- `PROJECT_PLAN.md`
-- `PRODUCT_BRIEF.json`
-- `VALIDATION.json`
-- seeded demo data
-- a runnable app entrypoint
-- lane-specific UI and workflow tests
-
-## Supported Lanes
-
-### `ops-copilot`
-- queue view
-- task detail workflow
-- follow-up capture
-- action recommendations placeholder
-
-### `intake-approval`
-- submission review queue
-- decision workflow
-- reviewer notes
-- audit-friendly status tracking
-
-### `reporting-dashboard`
-- KPI dashboard
-- filters
-- CSV export
-- follow-up action creation
-
-## Built-in Recipes
-
-- `lane-mvp-factory`
-  - qualifies an idea into a supported lane
-  - freezes the product brief
-  - scaffolds the canonical stack
-  - validates the workspace
-  - prepares the run for review/approval
-- `repo-improver`
-  - imports or reuses the saved repo digest
-  - builds a mission spec from digest + instructions + current validation
-  - runs targeted improvements in an isolated branch/worktree
-  - validates and creates an approval request before landing changes
-
-## What Runs Automatically
-
-Manual actions:
-
-- `POST /api/run` researches new lane-fit ideas
-- `POST /api/organize` reorganizes the bucket
-
-Automatic actions:
-
-- the heartbeat only iterates active projects with `auto_run=true`
-- each cycle uses the staged build pipeline and deterministic validation
-- projects stop auto-running once they hit the target score of `95`
-- workspace runs are isolated and approval-gated before changes land in the main workspace
-
-GitHub import actions:
-
-- `POST /api/projects/import` clones the repository and immediately generates a persisted `REPO_DIGEST.json`
-- imported projects keep manual instructions in `instructions.txt` and the AI execution brief in `REPO_DIGEST.json`
-- the YOLO action now starts a real isolated autonomous run using the saved mission inputs and current recipe
-
-## Validation Model
-
-Before REF can score a project, Blip checks:
-
-- scaffold contract present
-- app import works
-- homepage smoke test passes
-- seeded demo data loads
-- primary workflow test passes
-- README includes install, run, and test commands
-
-Validation output is persisted per project in:
-
-- `VALIDATION.json`
-- `records.json`
-- `artifacts/`
-
-Imported GitHub repos also persist:
-
-- `REPO_DIGEST.json`
-- `instructions.txt`
-
-## Project Layout
-
-```text
-.
-|-- app/
-|   |-- agent.py              # qualification, planning, scaffold, pipeline, REF
-|   |-- bucket.py             # idea bucket storage
-|   |-- config.py             # runtime settings
-|   |-- main.py               # FastAPI app and API routes
-|   |-- mvp_templates.py      # golden stack scaffolds for each lane
-|   |-- project_store.py      # active project manifest and workspace storage
-|   `-- project_validation.py # deterministic hard gates and artifact logs
-|-- data/
-|   |-- BUCKET.md
-|   `-- active_projects.json
-|-- static/
-|   `-- index.html
-|-- tests/
-|   `-- test_project_workflow.py
-`-- requirements.txt
+```sql
+select policyname from pg_policies where schemaname = 'public';
 ```
 
-## clawup — OpenClaw Setup Wizard
+### 2. Configure environment variables
 
-`clawup` is a guided setup tool that installs and configures OpenClaw without any terminal commands. It detects what's already on your machine, installs only what's missing, and walks through the whole thing in three steps.
+Copy `.env.example` to `.env.local` and fill in your Supabase values:
 
-### For non-technical users (browser wizard)
+```
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
-Run this once. It installs everything it needs, then opens the wizard in your browser:
+No service-role key is needed. RLS + the user session cookie handle
+authorisation for every read and write.
+
+### 3. Run locally
 
 ```bash
-python clawup-bootstrap.py
+npm install
+npm run dev
 ```
 
-You'll be guided through:
+Open <http://localhost:3000>.
 
-1. **Where do you want to use your AI?** — on your computer, Telegram, or WhatsApp
-2. **Which AI service do you have?** — pick OpenAI, Anthropic, OpenRouter, or local (Ollama)
-3. **Setting everything up** — installs OpenClaw, saves your key, configures everything, runs a health check
-
-### For terminal users
+## Useful scripts
 
 ```bash
-python clawup.py serve          # same wizard, opens browser
-python clawup.py                # interactive terminal version
-python clawup.py --dry-run      # preview what will be installed
-python clawup.py --fix          # run openclaw doctor only
-python clawup.py --help         # all options
+npm run dev        # Next.js dev server
+npm run build      # Production build
+npm run start      # Run the production build
+npm run lint       # ESLint via next lint
+npm run typecheck  # tsc --noEmit
 ```
 
----
+## Architecture
 
-## Install And Run
+### Data model
 
-Set your API key:
+Two tables in `public`, both RLS-enforced (owner-only).
 
-```bash
-export OPENAI_API_KEY="your_key_here"
-```
+- **`bundles`** — `id`, `owner_id` (`auth.users`), `name` (1–120 chars),
+  `description`, `created_at`, `updated_at`.
+- **`files`** — `id`, `bundle_id` (cascade), `owner_id`, `path` (1–512 chars,
+  unique per bundle), `content` (text), `storage_kind` (`inline` / `storage`),
+  `storage_path`, `size_bytes` (≤ 1 MB by `CHECK`), `mime_type`, timestamps.
 
-Optional workspace override:
+Triggers auto-touch `updated_at` and bump the parent bundle's `updated_at`
+whenever a file row changes.
 
-```bash
-export BLIP_PROJECTS_ROOT="/absolute/path/for/generated-projects"
-```
+**Why inline `text` for content (V1):** AI config files are small, the read
+and write happen in a single round-trip, RLS stays uniform, and there are no
+orphan blobs to garbage-collect. The 1 MB `CHECK` and `storage_kind` column
+mean we can migrate large or binary files into Supabase Storage later
+without a schema break.
 
-Optional platform home override:
+### Auth flow
 
-```bash
-export BLIP_HOME="/absolute/path/for/blip-home"
-```
+1. `/login` → server action calls
+   `supabase.auth.signInWithOtp({ email, options: { emailRedirectTo } })`.
+2. User clicks the email link → `/auth/callback?code=…`.
+3. The callback route exchanges the code for a session and redirects to
+   `/app`.
+4. `middleware.ts` runs on every request and refreshes the Supabase session
+   cookies via `supabase.auth.getUser()`.
+5. `app/app/layout.tsx` is the auth gate — anonymous users are redirected
+   to `/login`.
+6. `POST /auth/sign-out` ends the session and redirects to `/`.
 
-Install dependencies:
+### File CRUD
 
-```bash
-pip install -r requirements.txt
-```
+All mutations live in `lib/actions/{bundles,files}.ts` as Server Actions:
 
-Start the app:
+- `createBundle`, `renameBundle`, `deleteBundle`
+- `createFile`, `updateFile`, `renameFile`, `deleteFile`
+- `uploadFiles(bundleId, FormData)` — multi-file, validates size and
+  extension, sanitizes paths (no `..`, no absolute, no control chars), and
+  **upserts on `(bundle_id, path)`** so duplicates overwrite. The action
+  returns a structured summary (`uploaded`, `overwritten`, `rejected`) that
+  the UI surfaces as toasts.
 
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
+`next.config.mjs` bumps `experimental.serverActions.bodySizeLimit` to
+`'4mb'` so a multi-file upload of small files fits. Individual files are
+still capped at 1 MB by the DB constraint and validated client-side.
 
-Open `http://localhost:8000`.
+### Editor
 
-Start the local CLI:
+`components/FileEditor.tsx` is a CodeMirror 6 client component. Language is
+inferred from extension (`md`/`mdc` → Markdown, `json` → JSON, `yaml`/`yml`
+→ YAML, anything else → plain). Saves are debounced 500 ms and `Cmd`/`Ctrl`
++ `S` flushes immediately. The save indicator shows `Unsaved` →
+`Saving…` → `Saved`.
 
-```bash
-python blip.py workspace list
-python blip.py run start <workspace_id>
-python blip.py run approve <run_id>
-python blip.py skill list
-python blip.py daemon start
-```
+### ZIP export
 
-## UI Features
+`GET /api/bundles/[bundleId]/export` runs on the Node runtime, verifies
+ownership, builds a `JSZip` with each file at its stored path, and streams
+back `application/zip` with a `Content-Disposition: attachment` header. The
+filename is `<slug(bundle.name)>.zip`. A plain `<a href download>` triggers
+the download — no client JS required.
 
-- inspect workspaces, recent runs, approvals, skills, and recipes from the main dashboard
-- run isolated approval-gated workspace executions instead of directly applying repo changes
-- approve or reject pending runs before their branch/worktree changes land
-- keep the lane-based MVP factory as a built-in specialist mode
-- promote qualified bucket ideas into active projects
-- inspect lane, stage, product brief summary, run/test contract, and demo scenario
-- run `build`, `validate`, or full pipeline actions on demand
-- review hard-gate pass/fail results and next best task
-- inspect AI repo summaries, priority tasks, and the saved execution brief for imported repos
-- keep manual user instructions separate from the AI-generated YOLO plan
-- download the current generated repo at any time
-- open validation logs from the `artifacts/` folder
-- toggle heartbeat auto-run per project
-- delete bucket ideas or active projects from the UI
+## Manual smoke test
 
-## API
+After `npm install && npm run dev`, with the Supabase project provisioned
+and `0001_init.sql` applied:
 
-- `GET /api/state`
-- `GET /api/workspaces`
-- `POST /api/workspaces/import`
-- `POST /api/workspaces/generate`
-- `GET /api/workspaces/{id}`
-- `POST /api/workspaces/{id}/runs`
-- `GET /api/runs/{id}`
-- `POST /api/runs/{id}/approve`
-- `POST /api/runs/{id}/reject`
-- `GET /api/skills`
-- `PUT /api/skills/{id}`
-- `GET /api/recipes`
-- `POST /api/recipes/{id}/clone`
-- `PUT /api/recipes/{id}`
-- `GET /api/projects/{id}`
-- `GET /api/projects/{id}/download`
-- `GET /api/projects/{id}/artifacts/{artifact_name}`
-- `POST /api/run`
-- `POST /api/organize`
-- `POST /api/projects/select`
-- `POST /api/projects/import`
-- `POST /api/projects/{id}/instructions`
-- `POST /api/projects/{id}/instructions/yolo`
-- `POST /api/projects/{id}/build`
-- `POST /api/projects/{id}/validate`
-- `POST /api/projects/{id}/run`
-- `POST /api/projects/{id}/improve`
-- `POST /api/projects/{id}/auto`
-- `DELETE /api/projects/{id}`
-- `DELETE /api/ideas/{idea_id}`
-- `POST /api/heartbeat`
+1. `npm run lint && npm run typecheck && npm run build` all pass.
+2. In Supabase SQL editor, `select policyname from pg_policies where
+   schemaname='public'` lists 8 policies.
+3. Visit `/`, click **Sign in**, submit your email, click the magic link →
+   lands on `/app`.
+4. Create a bundle "My Claude Setup" → redirects to bundle view.
+5. Drag in `soul.md` and `mcp.json` — both appear in the file list within
+   ~1 s.
+6. Click **New file** → enter `skills/code-review.md`, type content →
+   "Saved" indicator appears.
+7. Open `soul.md`, edit, wait 1 s, hard-refresh → content persists.
+8. Click **Export ZIP** → browser downloads `my-claude-setup.zip` with all
+   three files at their correct paths.
+9. **Sign out** → navigating to `/app` redirects to `/login`. Sign back in →
+   bundle and files still there.
+10. Negative tests:
+    - Navigate to a bundle id from a different account → 404 (RLS).
+    - Upload a 5 MB file → rejected with a visible error toast.
+11. Push the branch, open a Vercel preview, set the env vars, repeat
+    steps 3, 5, 8 against the preview URL.
 
-## Notes
+## Out of scope (V1)
 
-- unsupported ideas remain in the bucket and should not be promoted
-- `data/BUCKET.md` and `data/active_projects.json` still exist as compatibility surfaces, but the control plane now lives in `BLIP_HOME/blip.db`
-- workspaces are isolated from the app repo by default and runs operate in isolated branches/worktrees before approval
-- REF uses a frozen rubric per project, but only after deterministic validation passes
-- duplicate pipeline attempts are recorded and skipped so the same no-op work is not retried forever
+- Public share links (per-file or per-bundle)
+- Versioning / history
+- Collaborators
+- OAuth providers (Google, GitHub, …)
+- Two-tab edit conflict resolution — last-write-wins is fine for V1.
+
+## Known limits
+
+- **Supabase free-tier email limits.** Fine for dev/demo; if you hit the
+  wall, plug a Resend SMTP key into Supabase **Auth → SMTP**.
+- **1 MB per file.** Sufficient for typical AI configs. The
+  `storage_kind = 'storage'` migration path is reserved in the schema.
+- **Two-tab edit conflicts.** Last-write-wins; add optimistic concurrency
+  post-MVP if it bites.
